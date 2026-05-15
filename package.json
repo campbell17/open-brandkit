@@ -1,0 +1,76 @@
+{
+  "name": "open-brandkit",
+  "version": "0.0.12",
+  "private": true,
+  "description": "A reusable, self-service brand kit system for websites and product repos.",
+  "type": "module",
+  "bin": {
+    "open-brandkit": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "docs/STYLE_CONTRACT.md",
+    "README.md",
+    "package.json"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./next": {
+      "types": "./dist/adapters/next/index.d.ts",
+      "import": "./dist/adapters/next/index.js"
+    },
+    "./next/server": {
+      "types": "./dist/adapters/next/server.d.ts",
+      "import": "./dist/adapters/next/server.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "echo \"No tests yet\"",
+    "brandkit:build": "open-brandkit build"
+  },
+  "keywords": [
+    "brandkit",
+    "brand-assets",
+    "nextjs",
+    "design-system"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "next": ">=15",
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "jiti": "^2.7.0",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.577.0",
+    "sharp": "^0.34.3",
+    "zod": "^4.2.0"
+  }
+}
