@@ -217,6 +217,4 @@ Open BrandKit is early. The main path today is:
 existing Next.js app + local brand assets -> generated /brandkit page
 ```
 
-The next priorities are better examples, broader test coverage, and smoother
-published-package installation.
 
