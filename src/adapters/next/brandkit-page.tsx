@@ -387,6 +387,10 @@ const styles = `
   min-height: 36px;
   padding: 8px 12px;
 }
+.obk-icon-button {
+  width: 36px;
+  padding: 8px;
+}
 .obk-button:hover,
 .obk-file-button:hover {
   border-color: #a3a3a3;
@@ -2355,18 +2359,23 @@ function BannerCard({
   asset,
   canUpload,
   endpoint,
+  isCustom,
   previewVersion,
+  onCustomStateChange,
   onUpdated,
 }: {
   asset: BrandKitBannerAsset
   canUpload: boolean
   endpoint?: string
+  isCustom: boolean
+  onCustomStateChange: (assetId: string, isCustom: boolean) => void
   onUpdated: () => void
   previewVersion: number
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState('')
   const [isReplacing, setReplacing] = useState(false)
+  const [isResetting, setResetting] = useState(false)
   const previewUrl = previewVersion
     ? `${asset.previewUrl}?v=${previewVersion}`
     : asset.previewUrl
@@ -2387,13 +2396,17 @@ function BannerCard({
         method: 'POST',
         body: formData,
       })
-      const result = (await response.json()) as { error?: string }
+      const result = (await response.json()) as {
+        error?: string
+        isCustom?: boolean
+      }
 
       if (!response.ok) {
         throw new Error(result.error ?? 'Could not replace banner image.')
       }
 
-      setStatus('Banner replaced.')
+      onCustomStateChange(asset.id, result.isCustom ?? true)
+      setStatus('Custom banner uploaded.')
       onUpdated()
     } catch (error) {
       setStatus(
@@ -2401,6 +2414,39 @@ function BannerCard({
       )
     } finally {
       setReplacing(false)
+    }
+  }
+
+  async function resetBanner() {
+    if (!endpoint) return
+
+    setResetting(true)
+    setStatus('Resetting banner...')
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset', assetId: asset.id }),
+      })
+      const result = (await response.json()) as {
+        error?: string
+        isCustom?: boolean
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error ?? 'Could not reset banner image.')
+      }
+
+      onCustomStateChange(asset.id, result.isCustom ?? false)
+      setStatus('Banner reset to default.')
+      onUpdated()
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : 'Could not reset banner image.',
+      )
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -2447,8 +2493,20 @@ function BannerCard({
                 type="button"
               >
                 <UploadIcon />
-                <span>{isReplacing ? 'Replacing...' : 'Replace'}</span>
+                <span>{isReplacing ? 'Uploading...' : 'Upload Custom'}</span>
               </button>
+              {isCustom ? (
+                <button
+                  aria-label="Reset to default"
+                  className="obk-file-button obk-icon-button"
+                  disabled={isReplacing || isResetting}
+                  onClick={() => void resetBanner()}
+                  title="Reset to default"
+                  type="button"
+                >
+                  <ResetIcon />
+                </button>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -2460,14 +2518,18 @@ function BannerCard({
 
 function BannerGroup({
   canUseDevActions,
+  customBannerIds,
   endpoints,
   group,
   previewVersion,
+  onCustomStateChange,
   onUpdated,
 }: {
   canUseDevActions: boolean
+  customBannerIds: ReadonlySet<string>
   endpoints?: BrandKitPageEndpoints
   group: BrandKitBannerGroup
+  onCustomStateChange: (assetId: string, isCustom: boolean) => void
   onUpdated: () => void
   previewVersion: number
 }) {
@@ -2483,7 +2545,9 @@ function BannerGroup({
             asset={asset}
             canUpload={canUseDevActions && Boolean(endpoints?.bannerUpload)}
             endpoint={endpoints?.bannerUpload}
+            isCustom={customBannerIds.has(asset.id)}
             key={asset.id}
+            onCustomStateChange={onCustomStateChange}
             onUpdated={onUpdated}
             previewVersion={previewVersion}
           />
@@ -2568,6 +2632,14 @@ export function BrandKitPage({
 }: BrandKitPageProps) {
   const [selectedAsset, setSelectedAsset] = useState<BrandKitAsset | null>(null)
   const [bannerPreviewVersion, setBannerPreviewVersion] = useState(0)
+  const [customBannerIds, setCustomBannerIds] = useState(
+    () =>
+      new Set(
+        manifest.bannerGroups.flatMap((group) =>
+          group.items.filter((asset) => asset.isCustom).map((asset) => asset.id),
+        ),
+      ),
+  )
   const avatarAssets = useMemo(
     () => findAvatarAssets(manifest.assetGroups),
     [manifest.assetGroups],
@@ -2590,6 +2662,20 @@ export function BrandKitPage({
   const brandLabel = manifest.brand.shortName ?? manifest.brand.name
   const homeUrl = manifest.brand.homeUrl ?? '/'
   const allDownloadHref = `${manifest.route}/download/all`
+
+  function updateCustomBannerState(assetId: string, isCustom: boolean) {
+    setCustomBannerIds((current) => {
+      const next = new Set(current)
+
+      if (isCustom) {
+        next.add(assetId)
+      } else {
+        next.delete(assetId)
+      }
+
+      return next
+    })
+  }
 
   function scrollToSection(
     event: MouseEvent<HTMLAnchorElement>,
@@ -2743,9 +2829,11 @@ export function BrandKitPage({
                 {manifest.bannerGroups.map((group) => (
                   <BannerGroup
                     canUseDevActions={canUseDevActions}
+                    customBannerIds={customBannerIds}
                     endpoints={endpoints}
                     group={group}
                     key={group.key}
+                    onCustomStateChange={updateCustomBannerState}
                     onUpdated={() => setBannerPreviewVersion(Date.now())}
                     previewVersion={bannerPreviewVersion}
                   />

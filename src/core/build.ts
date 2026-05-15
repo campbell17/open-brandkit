@@ -40,6 +40,7 @@ import type {
 
 export type BuildBrandKitOptions = {
   cwd?: string
+  customBannerIds?: readonly string[]
 }
 
 export type BuildBrandKitResult = {
@@ -93,9 +94,11 @@ async function discoverLogoGroups({
   config,
   outputRoot,
   projectRoot,
+  customBannerIds = new Set<string>(),
 }: {
   assetBasePath: string
   config: BrandKitConfig
+  customBannerIds?: ReadonlySet<string>
   outputRoot: string
   projectRoot: string
 }) {
@@ -185,11 +188,13 @@ async function discoverLogoGroups({
 async function renderBannerGroups({
   assetBasePath,
   config,
+  customBannerIds = new Set<string>(),
   outputRoot,
   projectRoot,
 }: {
   assetBasePath: string
   config: BrandKitConfig
+  customBannerIds?: ReadonlySet<string>
   outputRoot: string
   projectRoot: string
 }) {
@@ -222,6 +227,7 @@ async function renderBannerGroups({
       outputFileNameForPreset(config.brand.shortName ?? config.brand.name, preset.key)
     const outputPath = path.join(bannerOutputDir, fileName)
     const publicUrl = joinPublicUrl(publicPath, fileName)
+    const isCustom = customBannerIds.has(preset.key)
     const backgroundColor = resolveColor(
       preset.backgroundColor,
       bannerConfig.colors,
@@ -240,20 +246,23 @@ async function renderBannerGroups({
     const markAssetPath =
       (preset.markColor ? markVariant.colorAssets?.[preset.markColor] : undefined) ??
       markVariant.assetPath
-    const output = await renderBanner({
-      alignment: preset.alignment,
-      backgroundColor,
-      accentColor,
-      secondaryColor,
-      height: preset.height,
-      markAssetPath: path.resolve(projectRoot, markAssetPath),
-      markScale: markVariant.scale,
-      pattern: preset.pattern,
-      width: preset.width,
-    })
 
-    await writeFile(outputPath, output)
-    writtenFiles.push(outputPath)
+    if (!isCustom) {
+      const output = await renderBanner({
+        alignment: preset.alignment,
+        backgroundColor,
+        accentColor,
+        secondaryColor,
+        height: preset.height,
+        markAssetPath: path.resolve(projectRoot, markAssetPath),
+        markScale: markVariant.scale,
+        pattern: preset.pattern,
+        width: preset.width,
+      })
+
+      await writeFile(outputPath, output)
+      writtenFiles.push(outputPath)
+    }
 
     const groupKey = preset.groupKey ?? preset.key
     const groupLabel = preset.groupLabel ?? preset.label
@@ -271,6 +280,7 @@ async function renderBannerGroups({
       width: preset.width,
       height: preset.height,
       previewUrl: publicUrl,
+      ...(isCustom ? { isCustom } : {}),
       downloads: [createDownload(publicUrl)],
     } satisfies BrandKitBannerAsset
 
@@ -410,6 +420,7 @@ export async function buildBrandKit(
   const bannerResult = await renderBannerGroups({
     assetBasePath,
     config,
+    customBannerIds: new Set(options.customBannerIds ?? []),
     outputRoot,
     projectRoot,
   })

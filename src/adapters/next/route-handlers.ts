@@ -8,6 +8,7 @@ import type sharp from 'sharp'
 import type { BrandKitConfig, BrandKitManifest } from '../../core/types.js'
 import {
   type BrandKitNextAdapterOptions,
+  getBrandKitManifestPath,
   loadBrandKitManifest,
 } from './manifest.js'
 
@@ -23,6 +24,11 @@ export type BrandKitBannerPresetRequest = {
   markVariant?: string
   pattern?: string
   secondaryColor?: string
+}
+
+type BannerUploadResetRequest = {
+  action?: unknown
+  assetId?: unknown
 }
 
 const faviconPngSizes = [16, 32, 48, 180, 192, 512] as const
@@ -85,6 +91,77 @@ function findBannerAsset(manifest: BrandKitManifest, assetId: string) {
   }
 
   return null
+}
+
+function getCustomBannerIds(manifest: BrandKitManifest) {
+  return manifest.bannerGroups.flatMap((group) =>
+    group.items.filter((asset) => asset.isCustom).map((asset) => asset.id),
+  )
+}
+
+function setCustomBannerState(
+  manifest: BrandKitManifest,
+  assetId: string,
+  isCustom: boolean,
+): BrandKitManifest {
+  return {
+    ...manifest,
+    bannerGroups: manifest.bannerGroups.map((group) => ({
+      ...group,
+      items: group.items.map((asset) => {
+        if (asset.id !== assetId) return asset
+
+        const { isCustom: _previous, ...rest } = asset
+
+        return isCustom ? { ...rest, isCustom: true } : rest
+      }),
+    })),
+  }
+}
+
+async function writeBrandKitManifest(
+  manifest: BrandKitManifest,
+  options: BrandKitRouteHandlerOptions,
+) {
+  const manifestPath = getBrandKitManifestPath(options)
+
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+}
+
+function bannerWrittenFileNames(
+  config: BrandKitConfig,
+  files: string[],
+  options: BrandKitRouteHandlerOptions,
+) {
+  const cwd = getCwd(options)
+  const publicDir = getPublicDir(options)
+  const route = config.route ?? '/brandkit'
+  const assetBasePath = config.output?.assetBasePath ?? route
+  const outputDir = config.socialBanners?.outputDir ?? 'banners'
+  const bannerDir = path.resolve(
+    cwd,
+    publicDir,
+    stripSlashes(assetBasePath),
+    stripSlashes(outputDir),
+  )
+
+  return files
+    .filter(
+      (file) =>
+        path.extname(file).toLowerCase() === '.png' &&
+        path.resolve(file).startsWith(`${bannerDir}${path.sep}`),
+    )
+    .map((file) => path.basename(file))
+}
+
+function isBrandKitConfig(value: unknown): value is BrandKitConfig {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      'brand' in value &&
+      'logos' in value &&
+      'colors' in value,
+  )
 }
 
 function decodePngDataUrl(dataUrl: unknown) {
@@ -343,8 +420,14 @@ export function createBrandKitFaviconHandler(
 }
 
 export function createBrandKitBannerUploadHandler(
-  options: BrandKitRouteHandlerOptions = {},
+  configOrOptions: BrandKitConfig | BrandKitRouteHandlerOptions = {},
+  maybeOptions: BrandKitRouteHandlerOptions = {},
 ) {
+  const config = isBrandKitConfig(configOrOptions) ? configOrOptions : null
+  const options = isBrandKitConfig(configOrOptions)
+    ? maybeOptions
+    : configOrOptions
+
   return {
     async POST(request: Request) {
       try {
@@ -352,6 +435,48 @@ export function createBrandKitBannerUploadHandler(
           return productionBlocked(
             'Banner replacement is only available in local development.',
           )
+        }
+
+        if (request.headers.get('content-type')?.includes('application/json')) {
+          if (!config) {
+            throw new Error('Banner reset requires the Brand Kit config.')
+          }
+
+          const body = (await request.json()) as BannerUploadResetRequest
+
+          if (body.action !== 'reset') {
+            throw new Error('Unsupported banner action.')
+          }
+
+          if (typeof body.assetId !== 'string') {
+            throw new Error('Missing banner asset.')
+          }
+
+          const manifest = await loadBrandKitManifest(options)
+          const asset = findBannerAsset(manifest, body.assetId)
+
+          if (!asset) {
+            throw new Error('Banner asset not found.')
+          }
+
+          const customBannerIds = getCustomBannerIds(manifest).filter(
+            (assetId) => assetId !== body.assetId,
+          )
+          const { buildBrandKit } = await import('../../core/build.js')
+          const result = await buildBrandKit(config, {
+            cwd: getCwd(options),
+            customBannerIds,
+          })
+          const resetAsset = findBannerAsset(result.manifest, body.assetId)
+
+          return NextResponse.json({
+            assetId: body.assetId,
+            files: bannerWrittenFileNames(config, result.writtenFiles, options),
+            height: resetAsset?.height ?? asset.height,
+            isCustom: false,
+            url: resetAsset?.previewUrl ?? asset.previewUrl,
+            width: resetAsset?.width ?? asset.width,
+          })
         }
 
         const formData = await request.formData()
@@ -395,10 +520,16 @@ export function createBrandKitBannerUploadHandler(
 
         await mkdir(path.dirname(filePath), { recursive: true })
         await writeFile(filePath, output)
+        await writeBrandKitManifest(
+          setCustomBannerState(manifest, asset.id, true),
+          options,
+        )
 
         return NextResponse.json({
+          assetId: asset.id,
           fileName: download.fileName,
           height: asset.height,
+          isCustom: true,
           url: download.url,
           width: asset.width,
         })
@@ -431,16 +562,17 @@ export function createBrandKitBannerPresetHandler(
         }
 
         const body = (await request.json()) as BrandKitBannerPresetRequest
+        const currentManifest = await loadBrandKitManifest(options)
+        const customBannerIds = getCustomBannerIds(currentManifest)
         const { buildBrandKit } = await import('../../core/build.js')
         const result = await buildBrandKit(applyBannerPresetRequest(config, body), {
           cwd: getCwd(options),
+          customBannerIds,
         })
-        const files = result.manifest.bannerGroups.flatMap((group) =>
-          group.items.flatMap((asset) =>
-            asset.downloads
-              .filter((download) => download.format === 'PNG')
-              .map((download) => download.fileName),
-          ),
+        const files = bannerWrittenFileNames(
+          config,
+          result.writtenFiles,
+          options,
         )
 
         return NextResponse.json({ files })
@@ -465,7 +597,7 @@ export function createBrandKitNextHandlers(
 ) {
   return {
     bannerPresets: createBrandKitBannerPresetHandler(config, options),
-    bannerUpload: createBrandKitBannerUploadHandler(options),
+    bannerUpload: createBrandKitBannerUploadHandler(config, options),
     downloads: createBrandKitDownloadHandler(options),
     favicon: createBrandKitFaviconHandler(config, options),
   }

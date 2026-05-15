@@ -52,8 +52,10 @@ export const { POST } = createBrandKitFaviconHandler(config)
 // app/brandkit/banners/route.ts
 import { createBrandKitBannerUploadHandler } from 'open-brandkit/next/server'
 
+import config from '@/brandkit.config'
+
 export const runtime = 'nodejs'
-export const { POST } = createBrandKitBannerUploadHandler()
+export const { POST } = createBrandKitBannerUploadHandler(config)
 ```
 
 ## Banner Preset Route

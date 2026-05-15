@@ -944,11 +944,13 @@ export const { POST } = createBrandKitFaviconHandler(config)
 `
 }
 
-function bannerUploadRouteSource() {
+function bannerUploadRouteSource(configImport: string) {
   return `import { createBrandKitBannerUploadHandler } from 'open-brandkit/next/server'
 
+import config from '${configImport}'
+
 export const runtime = 'nodejs'
-export const { POST } = createBrandKitBannerUploadHandler()
+export const { POST } = createBrandKitBannerUploadHandler(config)
 `
 }
 
@@ -1022,7 +1024,7 @@ async function writeNextAdapterFiles({
     skipped,
   })
   await writeGeneratedFile({
-    content: bannerUploadRouteSource(),
+    content: bannerUploadRouteSource(importPath(bannerUploadPath, configPath)),
     created,
     filePath: bannerUploadPath,
     force,

@@ -150,6 +150,7 @@ export type BrandKitBannerAsset = {
   width: number
   height: number
   previewUrl: string
+  isCustom?: boolean
   downloads: BrandKitAssetDownload[]
 }
 
