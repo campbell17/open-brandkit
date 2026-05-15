@@ -1,8 +1,8 @@
 # Brand Kit Style Contract
 
-Open BrandKit follows the Sequel Brand Kit layout as its deterministic default. Generated installs should differ only by brand inputs: logo files, icon files, colors, brand name, and generated banner images.
+Open BrandKit follows its own deterministic Brand Kit layout by default. Generated installs should differ only by brand inputs: logo files, icon files, colors, brand name, and generated banner images.
 
-Reusable code must not include Sequel-specific names, copy, or asset paths.
+Reusable code must not include project-specific names, copy, or asset paths.
 
 ## Deterministic Defaults
 
@@ -29,7 +29,7 @@ Reusable code must not include Sequel-specific names, copy, or asset paths.
 - Avatar icon-color chips are inferred from available icon files and brand colors. Wordmark-looking assets must never be used by the avatar generator. The chips do not show the icon artwork; the artwork appears in the preview.
 - Avatar background options are Transparent, Black, White, and Custom.
 - Avatar border color options are Primary, Black, White, and Custom.
-- Banner controls use the Sequel control shape: mark select, mark color dots, alignment segmented buttons, base/pattern color dots, and pattern select.
+- Banner controls use the Open BrandKit control shape: mark select, mark color dots, alignment segmented buttons, base/pattern color dots, and pattern select.
 - Banner mark choices are inferred from available logo lockup, wordmark, and icon source files during install.
 - Banner Color changes the selected mark color only. Banner Base changes the generated background/pattern system.
 - Banner cards preserve generated aspect ratio and display at 50% of their pixel width.

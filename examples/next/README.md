@@ -2,7 +2,7 @@
 
 Placeholder for a future working example.
 
-This example should eventually prove the package can power a `/brandkit` route without copying Sequel-specific code.
+This example should eventually prove the package can power a `/brandkit` route using only Open BrandKit's public APIs and neutral fixture assets.
 
 For now, the static build path can be exercised from the repo root:
 
