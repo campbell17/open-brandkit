@@ -12,6 +12,10 @@ Open BrandKit exists so a website repo can become the source of truth. Put the
 approved brand files in the project, run the installer, and your site gets a
 `/brandkit` page that stays tied to the assets you actually ship.
 
+Open BrandKit is source-available. You can use it in personal, internal,
+client, agency, and commercial projects, but you cannot repackage or resell Open
+BrandKit itself as a standalone or competing product.
+
 ## What It Creates
 
 Open BrandKit can generate a brand kit with:
@@ -33,6 +37,7 @@ logos, your icons, your wordmarks, and your colors.
 Open BrandKit currently works best with:
 
 - A Next.js App Router site.
+- Tailwind CSS 3 or 4.
 - Logos and icons stored in your repo, usually under `public/logos`.
 - SVG or PNG brand assets.
 - A color source file in Markdown, JSON, CSV, or TypeScript config.
@@ -40,6 +45,21 @@ Open BrandKit currently works best with:
 
 It can also generate static files under `public/brandkit`, but the full
 interactive experience uses the Next.js adapter.
+
+The generated Next.js page is Tailwind-first. Having Tailwind installed is only
+half of the requirement: your app also needs to include Open BrandKit's shipped
+components when Tailwind builds its CSS. During `init`, Open BrandKit tries to
+wire that up for you.
+
+For Tailwind 3, the installer adds Open BrandKit to the `content` paths in
+`tailwind.config.*`. For Tailwind 4, it adds an `@source` directive to your app
+stylesheet. If `/brandkit` loads but looks unstyled, this scan path is the first
+thing to check.
+
+The installer patches common Tailwind setups automatically. If your Tailwind
+configuration is highly custom, generated, or split across unusual files, Open
+BrandKit may leave it untouched and print the exact scan/source line to add by
+hand.
 
 ## What It Does Not Do
 
@@ -82,12 +102,31 @@ Then add a color source file.
 Example Markdown:
 
 ```md
+## Brand Colors
+
+### Primary Colors
+
 | Name | Hex |
 | --- | --- |
 | Acme Blue | #2457ff |
 | Acme Green | #32d583 |
+
+### Secondary Colors
+
+| Name | Hex |
+| --- | --- |
 | Acme Black | #101828 |
+| Acme Gray | #667085 |
 ```
+
+Primary colors render as a two-column section. Secondary colors render as a
+three-column section. Use those headings when you want Open BrandKit to lay out
+the color system like the default brand kit.
+
+For print swatches, use the exact heading `## Print Color Shades`. Open BrandKit
+uses that heading to render Pantone-style chips with RGB, CMYK, and hex values
+instead of ordinary brand color cards. See
+`examples/acme-studio-color-system.md` for a fuller color-system example.
 
 ## Install
 
@@ -121,6 +160,10 @@ npx open-brandkit init \
 ```
 
 Use `app` instead of `src/app` if your project does not use a `src` directory.
+
+After install, your app should have Tailwind pointed at the package code. The
+installer handles the common Tailwind 3 and Tailwind 4 setups automatically, but
+custom Tailwind setups may need a manual check.
 
 ## What Gets Added
 
@@ -209,6 +252,26 @@ Commit the generated files and deploy your site as usual.
 
 On Vercel, `/brandkit` works like any other Next.js route once the files are in
 the repo.
+
+If the deployed page appears unstyled, make sure the deployed app is using the
+same Tailwind scan/source change that worked locally. Open BrandKit's styles are
+compiled by the host app, not loaded from a separate stylesheet.
+
+## License
+
+Open BrandKit is source-available.
+
+You may use it commercially in your own projects, internal company work, client
+work, agency projects, websites, and products. You may charge for services,
+implementation, design, hosting, or client work that uses Open BrandKit as part
+of a larger project.
+
+You may not sell, sublicense, repackage, redistribute, publish, or offer Open
+BrandKit itself as a standalone product, competing package, hosted installer,
+template marketplace item, or software-as-a-service product whose value derives
+primarily from Open BrandKit.
+
+See `LICENSE` for the full terms.
 
 ## Status
 

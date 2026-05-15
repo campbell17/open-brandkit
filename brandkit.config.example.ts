@@ -34,8 +34,7 @@ export default defineBrandKitConfig({
     sources: [
       {
         type: 'markdown-table',
-        path: 'fixtures/brandkit/colors/brand-colors.md',
-        sectionHeading: '# Brand Colors',
+        path: 'examples/acme-studio-color-system.md',
       },
     ],
   },

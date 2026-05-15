@@ -40,6 +40,7 @@ const colorSourceSchema = z.discriminatedUnion('type', [
 
 const colorSectionSchema = z.object({
   label: z.string().min(1),
+  columns: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   rows: z.array(z.array(z.string().min(1)).min(1)).min(1),
 })
 

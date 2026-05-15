@@ -22,8 +22,9 @@ import {
 import { renderBanner } from './banner-renderer.js'
 import { brandKitConfigSchema } from './config.js'
 import {
-  createDefaultColorSections,
+  loadBrandKitColorSections,
   loadBrandKitColors,
+  loadBrandKitPrintColorGroups,
   normalizeHexColor,
 } from './colors.js'
 import { generateStaticBrandKitPage } from './static-page.js'
@@ -453,6 +454,15 @@ export async function buildBrandKit(
     projectRoot,
   })
   const brandColors = await loadBrandKitColors(config.colors, projectRoot)
+  const colorSections = await loadBrandKitColorSections(
+    config.colors,
+    projectRoot,
+    brandColors,
+  )
+  const printColorGroups = await loadBrandKitPrintColorGroups(
+    config.colors,
+    projectRoot,
+  )
   const bannerResult = await renderBannerGroups({
     assetBasePath,
     config,
@@ -477,7 +487,8 @@ export async function buildBrandKit(
     brand: config.brand,
     assetGroups: logoResult.groups,
     brandColors,
-    colorSections: config.colors.sections ?? createDefaultColorSections(brandColors),
+    colorSections,
+    printColorGroups,
     bannerGroups: bannerResult.groups,
     downloads: {
       allAssets: downloadResult.allAssetsUrl,

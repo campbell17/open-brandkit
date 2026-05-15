@@ -1,6 +1,7 @@
 node_modules
 dist
 public/brandkit/
+lab/
 .turbo
 .next
 .env

@@ -1,0 +1,72 @@
+Open BrandKit Source-Available License
+Version 1.0
+
+Copyright (c) 2026 Tim Campbell Works, LLC.
+
+Permission is granted, free of charge, to any person or organization obtaining
+a copy of this software and associated documentation files (the "Software"), to
+use, copy, install, run, modify, and create derivative works of the Software for
+personal, internal, client, agency, commercial, and noncommercial projects,
+subject to the terms below.
+
+1. Permitted Use
+
+You may use Open BrandKit to create, build, customize, deploy, and maintain
+brand kit pages and related assets for yourself, your organization, your
+clients, or products and services you operate.
+
+You may charge for services, consulting, implementation work, design work,
+client websites, hosting, or products that use Open BrandKit as part of a
+larger project, provided that you are not selling Open BrandKit itself or a
+substantially similar competing product.
+
+Brand assets, generated pages, generated images, generated manifests, and other
+outputs created for your own projects remain subject to your own rights and the
+rights of the brand owners whose assets you use. This license does not claim
+ownership over your brand assets or generated project output.
+
+2. Restrictions
+
+You may not sell, sublicense, repackage, redistribute, publish, or offer Open
+BrandKit, in whole or substantial part, as a standalone product, competing
+package, hosted installer, template marketplace item, software-as-a-service
+offering, or other product whose value derives primarily from Open BrandKit
+itself.
+
+You may not remove or obscure copyright notices, license notices, or attribution
+notices included with the Software.
+
+You may not use the Open BrandKit name, marks, or project identity to imply
+endorsement, sponsorship, or affiliation without written permission.
+
+3. Sharing Changes
+
+You may fork, study, modify, and share changes to the Software for collaboration,
+review, contribution, or non-resale purposes, provided that shared copies or
+substantial portions retain this license and all required notices.
+
+Any public fork, derivative, variation, improvement, or modified version of Open
+BrandKit that is released must be distributed under this license or terms that
+are substantially equivalent.
+
+4. Contributions
+
+By submitting a contribution to this repository, you agree that your contribution
+is provided under the terms of this license. You represent that you have the
+right to submit the contribution under these terms.
+
+5. Separate Commercial Licensing
+
+If you want to sell, repackage, redistribute, host, or otherwise commercialize
+Open BrandKit itself in a way this license does not allow, you must obtain a
+separate written license from the copyright holders.
+
+6. Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OF OR OTHER DEALINGS IN
+THE SOFTWARE.

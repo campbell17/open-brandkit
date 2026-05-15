@@ -28,6 +28,8 @@ import type {
   BrandKitBannerGroup,
   BrandKitColor,
   BrandKitManifest,
+  BrandKitPrintColor,
+  BrandKitPrintColorGroup,
 } from '../../core/types.js'
 import type { BrandKitBannerControls } from './manifest.js'
 
@@ -70,9 +72,20 @@ type AvatarIconOption = {
 }
 
 type BrandColorRows = {
+  columns: 1 | 2 | 3
   label: string
   rows: BrandKitColor[][]
 }[]
+
+type ToastTone = 'success' | 'error' | 'info'
+
+type ToastMessage = {
+  id: number
+  message: string
+  tone: ToastTone
+}
+
+type ShowToast = (message: string, tone?: ToastTone) => void
 
 const transparentPreviewStyle = {
   backgroundColor: '#f7f7f7',
@@ -100,947 +113,6 @@ const avatarMaxBorderRatio = 96 / 512
 const bannerPreviewScale = 0.5
 const deterministicIntro =
   'Approved marks, avatar-ready presets, social profile assets, and the current color system.'
-
-const styles = `
-.obk-shell {
-  min-height: 100vh;
-  background: #f8fafc;
-  color: #020617;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-.obk-shell * { box-sizing: border-box; }
-.obk-shell a { color: inherit; }
-.obk-header {
-  border-bottom: 1px solid #e2e8f0;
-  background: #ffffff;
-}
-.obk-wrap {
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding-right: 16px;
-  padding-left: 16px;
-}
-.obk-header-inner {
-  display: grid;
-  gap: 40px;
-  padding-top: 48px;
-  padding-bottom: 48px;
-}
-.obk-brand-link,
-.obk-eyebrow {
-  margin: 0;
-  color: #737373;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  line-height: 1.3;
-  text-transform: uppercase;
-}
-.obk-brand-link {
-  text-decoration: none;
-  transition: color 160ms ease;
-}
-.obk-brand-link:hover { color: #0a0a0a; }
-.obk-title {
-  margin: 12px 0 0;
-  color: #020617;
-  font-size: 48px;
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1;
-}
-.obk-copy {
-  max-width: 672px;
-  margin: 16px 0 0;
-  color: #475569;
-  font-size: 16px;
-  line-height: 1.75;
-}
-.obk-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  margin-top: 32px;
-}
-.obk-nav-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #404040;
-  font-size: 14px;
-  font-weight: 500;
-  text-decoration: none;
-  text-underline-offset: 4px;
-  transition: color 160ms ease;
-}
-.obk-nav-link:hover {
-  color: #0a0a0a;
-  text-decoration: underline;
-}
-.obk-nav-icon,
-.obk-button-icon,
-.obk-copy-icon,
-.obk-align-svg {
-  flex: 0 0 auto;
-  stroke-width: 2;
-}
-.obk-nav-icon {
-  width: 14px;
-  height: 14px;
-}
-.obk-button-icon,
-.obk-align-svg {
-  width: 16px;
-  height: 16px;
-}
-.obk-copy-icon {
-  width: 14px;
-  height: 14px;
-}
-.obk-asset-count {
-  color: #64748b;
-  font-size: 14px;
-}
-.obk-hero-media {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-.obk-hero-asset {
-  display: flex;
-  aspect-ratio: 673 / 489;
-  width: 100%;
-  max-width: 320px;
-  align-items: center;
-  justify-content: center;
-}
-.obk-hero-asset img {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-.obk-section {
-  background: #ffffff;
-}
-.obk-section-muted {
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-.obk-section-banners {
-  border-top: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-.obk-section-inner {
-  padding-top: 56px;
-  padding-bottom: 56px;
-}
-.obk-section-heading {
-  max-width: 672px;
-}
-.obk-section-heading-row {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.obk-section-heading-actions {
-  flex: 0 0 auto;
-}
-.obk-section-heading h2 {
-  margin: 12px 0 0;
-  color: #020617;
-  font-size: 36px;
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1.1;
-}
-.obk-section-heading p:last-child {
-  margin: 16px 0 0;
-  color: #475569;
-  font-size: 16px;
-  line-height: 1.75;
-}
-.obk-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
-  margin-top: 40px;
-}
-.obk-group {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.obk-group-header {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.obk-group-header h3,
-.obk-avatar-title,
-.obk-color-group h3 {
-  margin: 0;
-  color: #020617;
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-.obk-group-header p,
-.obk-avatar-intro,
-.obk-color-group p,
-.obk-banner-group p {
-  margin: 4px 0 0;
-  color: #475569;
-  font-size: 14px;
-  line-height: 1.5;
-}
-.obk-group-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-}
-.obk-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-.obk-card,
-.obk-color-card,
-.obk-banner-card {
-  overflow: hidden;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  background: #ffffff;
-}
-.obk-card {
-  display: flex;
-  height: 100%;
-  flex-direction: column;
-}
-.obk-preview {
-  display: flex;
-  min-height: 220px;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  border: 0;
-  border-bottom: 1px solid #e5e5e5;
-  padding: 40px 24px;
-  cursor: zoom-in;
-  transition: opacity 160ms ease;
-}
-.obk-preview:hover { opacity: 0.9; }
-.obk-preview-dark {
-  background: #2b333f;
-  background-image: none;
-}
-.obk-preview img {
-  display: block;
-  width: auto;
-  max-width: 100%;
-  max-height: 112px;
-  object-fit: contain;
-}
-.obk-card-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px;
-}
-.obk-card-body h4,
-.obk-color-card h4,
-.obk-banner-card h4 {
-  margin: 0;
-  color: #171717;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-.obk-button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.obk-button,
-.obk-file-button,
-.obk-copy-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  border-radius: 6px;
-  border: 1px solid #d4d4d4;
-  background: #ffffff;
-  color: #262626;
-  cursor: pointer;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.2;
-  text-decoration: none;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
-}
-.obk-button,
-.obk-file-button {
-  min-height: 36px;
-  padding: 8px 12px;
-}
-.obk-icon-button {
-  width: 36px;
-  padding: 8px;
-}
-.obk-button:hover,
-.obk-file-button:hover {
-  border-color: #a3a3a3;
-  background: #fafafa;
-}
-.obk-button:disabled,
-.obk-file-button:disabled,
-.obk-control-button:disabled,
-.obk-select:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-.obk-button-dark {
-  border-color: #2b333f;
-  background: #2b333f;
-  color: #ffffff;
-}
-.obk-button-dark,
-.obk-button-dark *,
-.obk-shell a.obk-button-dark,
-.obk-shell a.obk-button-dark * {
-  color: #ffffff;
-}
-.obk-button-dark:hover {
-  border-color: #1d232b;
-  background: #1d232b;
-  color: #ffffff;
-}
-.obk-button-favicon {
-  border-color: #0d2249;
-  background: #0d2249;
-  color: #ffffff;
-}
-.obk-button-favicon:hover {
-  border-color: #1e293b;
-  background: #1e293b;
-  color: #ffffff;
-}
-.obk-copy-button {
-  min-height: 30px;
-  border-color: #e5e5e5;
-  padding: 6px 10px;
-  color: #404040;
-  font-size: 12px;
-}
-.obk-copy-button:hover {
-  border-color: #d4d4d4;
-  background: #fafafa;
-}
-.obk-avatar {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.obk-avatar-grid {
-  display: grid;
-  gap: 20px;
-}
-.obk-avatar-controls {
-  position: relative;
-  display: grid;
-  gap: 48px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #ffffff;
-  padding: 24px;
-}
-.obk-reset-button {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: inline-flex;
-  width: 32px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  transition: color 160ms ease;
-}
-.obk-reset-button:hover { color: #1d4ed8; }
-.obk-avatar-control-group {
-  display: flex;
-  width: max-content;
-  max-width: 100%;
-  flex-direction: column;
-  gap: 16px;
-  justify-self: center;
-}
-.obk-control-title,
-.obk-banner-control legend,
-.obk-color-section-title {
-  margin: 0;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  line-height: 1.3;
-  text-transform: uppercase;
-}
-.obk-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 16px 12px;
-}
-.obk-chip {
-  display: flex;
-  width: 64px;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-  text-align: center;
-}
-.obk-chip-preview {
-  display: flex;
-  aspect-ratio: 1;
-  width: 64px;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-.obk-chip:hover .obk-chip-preview {
-  border-color: #64748b;
-}
-.obk-chip.is-selected .obk-chip-preview {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px #2563eb, 0 0 0 4px #ffffff;
-}
-.obk-chip-label {
-  width: 64px;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.35;
-}
-.obk-chip-preview img {
-  display: block;
-  max-width: 42px;
-  max-height: 42px;
-  object-fit: contain;
-}
-.obk-shape-sample {
-  display: block;
-  width: 32px;
-  height: 32px;
-  background: #0d2249;
-}
-.obk-border-sample {
-  display: block;
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
-  background: #ffffff;
-}
-.obk-avatar-divider {
-  display: none;
-}
-.obk-avatar-preview {
-  display: flex;
-  min-height: 320px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #ffffff;
-  padding: 20px;
-  text-align: center;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-}
-.obk-avatar-surface {
-  display: flex;
-  aspect-ratio: 1;
-  width: 100%;
-  max-width: 256px;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-.obk-avatar-surface canvas {
-  display: block;
-  aspect-ratio: 1;
-  width: 100%;
-  height: auto;
-}
-.obk-avatar-range {
-  display: flex;
-  width: 100%;
-  max-width: 256px;
-  flex-direction: column;
-  gap: 12px;
-}
-.obk-avatar-range span {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.obk-avatar-range input {
-  width: 100%;
-  cursor: pointer;
-  accent-color: #2563eb;
-}
-.obk-custom-color-label {
-  display: flex;
-  width: 100%;
-  max-width: 220px;
-  flex-direction: column;
-  gap: 8px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.obk-custom-color-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.obk-custom-color-row input[type="color"] {
-  width: 40px;
-  height: 40px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  cursor: pointer;
-  padding: 3px;
-}
-.obk-custom-color-row input[type="text"] {
-  min-width: 0;
-  flex: 1;
-  height: 40px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #0f172a;
-  font: inherit;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 13px;
-  letter-spacing: 0;
-  padding: 0 10px;
-  text-transform: none;
-}
-.obk-status {
-  min-height: 20px;
-  margin: 0;
-  color: #64748b;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.4;
-}
-.obk-color-group {
-  margin-top: 48px;
-}
-.obk-color-sections,
-.obk-color-section,
-.obk-color-rows {
-  display: flex;
-  flex-direction: column;
-}
-.obk-color-sections { gap: 16px; margin-top: 20px; }
-.obk-color-section { gap: 12px; }
-.obk-color-rows { gap: 16px; }
-.obk-color-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-.obk-color-card {
-  display: block;
-}
-.obk-swatch {
-  height: 112px;
-  width: 100%;
-  border-bottom: 1px solid #e5e5e5;
-}
-.obk-color-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-}
-.obk-banner-controls {
-  width: 100%;
-  margin-top: 24px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #ffffff;
-  padding: 12px;
-}
-.obk-banner-control-grid {
-  display: grid;
-  gap: 12px;
-}
-.obk-banner-control {
-  min-width: 0;
-  margin: 0;
-  border: 0;
-  padding: 0;
-}
-.obk-select {
-  width: 100%;
-  height: 32px;
-  margin-top: 8px;
-  border: 1px solid #d4d4d4;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #262626;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 0 10px;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
-}
-.obk-select:hover,
-.obk-select:focus {
-  border-color: #0d2249;
-  background: #f8fafc;
-  color: #020617;
-  outline: none;
-}
-.obk-dot-group,
-.obk-align-group {
-  display: inline-flex;
-  margin-top: 8px;
-  border: 1px solid #d4d4d4;
-  border-radius: 6px;
-  background: #ffffff;
-  padding: 4px;
-}
-.obk-control-button {
-  display: flex;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #334155;
-  cursor: pointer;
-  transition:
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    color 160ms ease;
-}
-.obk-dot-button { width: 28px; }
-.obk-align-button { width: 32px; }
-.obk-control-button:hover {
-  background: #f1f5f9;
-  box-shadow: inset 0 0 0 1px #64748b;
-}
-.obk-control-button.is-selected {
-  background: #f1f5f9;
-  box-shadow: inset 0 0 0 1px #0d2249;
-}
-.obk-align-button.is-selected {
-  background: #0d2249;
-  color: #ffffff;
-  box-shadow: none;
-}
-.obk-color-dot {
-  display: block;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.18);
-}
-.obk-banner-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-  margin-top: 48px;
-}
-.obk-banner-group {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.obk-banner-group h3 {
-  margin: 0;
-  color: #737373;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-.obk-banner-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.obk-banner-card {
-  max-width: 100%;
-}
-.obk-banner-preview {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-  border-bottom: 1px solid #e5e5e5;
-  background: #f1f5f9;
-}
-.obk-banner-preview img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.obk-banner-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-}
-.obk-banner-card p {
-  margin: 4px 0 0;
-  color: #737373;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.obk-file-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-}
-.obk-footer {
-  border-top: 1px solid #e2e8f0;
-  background: #ffffff;
-}
-.obk-footer-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-top: 32px;
-  padding-bottom: 32px;
-}
-.obk-footer-logo {
-  display: flex;
-  width: 160px;
-  height: 48px;
-  align-items: center;
-}
-.obk-footer-logo img {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-.obk-footer p {
-  margin: 0;
-  color: #64748b;
-  font-size: 14px;
-}
-.obk-lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  overflow-y: auto;
-  background: rgba(0,0,0,0.7);
-  padding: 16px;
-}
-.obk-lightbox-align {
-  display: flex;
-  min-height: 100%;
-  align-items: center;
-  justify-content: center;
-}
-.obk-lightbox-panel {
-  width: 100%;
-  max-width: 1024px;
-  overflow: hidden;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
-}
-.obk-lightbox-preview {
-  display: flex;
-  min-height: 60vh;
-  align-items: center;
-  justify-content: center;
-  background: #f7f7f7;
-  padding: 40px 32px;
-}
-.obk-lightbox-checker {
-  max-width: 100%;
-  overflow: auto;
-  border: 1px solid #d4d4d4;
-  border-radius: 6px;
-  padding: 16px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-}
-.obk-lightbox-checker img {
-  display: block;
-  width: auto;
-  max-width: 100%;
-  max-height: 70vh;
-  height: auto;
-}
-.obk-lightbox-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  border-top: 1px solid #e5e5e5;
-  padding: 20px;
-}
-.obk-lightbox-title {
-  margin: 0;
-  color: #171717;
-  font-size: 18px;
-  font-weight: 600;
-}
-.obk-lightbox-file {
-  margin: 4px 0 0;
-  color: #737373;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
-}
-.obk-shape-square { border-radius: 0; }
-.obk-shape-rounded { border-radius: 22%; }
-.obk-shape-round { border-radius: 999px; }
-@media (min-width: 640px) {
-  .obk-wrap {
-    padding-right: 24px;
-    padding-left: 24px;
-  }
-  .obk-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .obk-group-header {
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: space-between;
-  }
-  .obk-section-heading-row {
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: space-between;
-  }
-  .obk-color-row-2,
-  .obk-color-row-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .obk-banner-control-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .obk-lightbox {
-    padding: 32px;
-  }
-  .obk-lightbox-body {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-@media (min-width: 768px) {
-  .obk-avatar-controls {
-    grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
-  }
-  .obk-avatar-divider {
-    position: relative;
-    display: block;
-    align-self: stretch;
-    grid-column: 2;
-    grid-row: 1 / span 3;
-  }
-  .obk-avatar-divider::before {
-    position: absolute;
-    top: -12px;
-    bottom: -12px;
-    left: 50%;
-    width: 1px;
-    content: "";
-    transform: translateX(-50%);
-    background: linear-gradient(to bottom, transparent, #e2e8f0, transparent);
-  }
-  .obk-avatar-col-left { grid-column: 1; }
-  .obk-avatar-col-right { grid-column: 3; }
-  .obk-avatar-row-1 { grid-row: 1; }
-  .obk-avatar-row-2 { grid-row: 2; }
-  .obk-avatar-row-3 { grid-row: 3; }
-  .obk-footer-inner {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .obk-footer p {
-    text-align: right;
-  }
-}
-@media (min-width: 1024px) {
-  .obk-wrap {
-    padding-right: 32px;
-    padding-left: 32px;
-  }
-  .obk-header-inner {
-    grid-template-columns: minmax(0, 1fr) 360px;
-    align-items: center;
-  }
-  .obk-hero-media {
-    justify-content: flex-end;
-  }
-  .obk-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .obk-avatar-grid {
-    grid-template-columns: minmax(0, 1fr) 384px;
-    align-items: stretch;
-  }
-  .obk-color-row-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .obk-banner-control-grid {
-    grid-template-columns: minmax(9rem, 1fr) auto auto auto minmax(9rem, 1fr);
-    align-items: start;
-  }
-}
-`
 
 function getAssetDownloadHref(downloadUrl: string) {
   return downloadUrl
@@ -1258,10 +330,16 @@ function getAvatarBorderThickness(
 }
 
 function getAvatarShapeClass(shape: AvatarShape) {
-  if (shape === 'round') return 'obk-shape-round'
-  if (shape === 'rounded') return 'obk-shape-rounded'
+  if (shape === 'round') return 'rounded-full'
+  if (shape === 'rounded') return 'rounded-[22%]'
 
-  return 'obk-shape-square'
+  return 'rounded-none'
+}
+
+function selectionRing(isSelected: boolean) {
+  return isSelected
+    ? 'border-[#3a89c0] ring-2 ring-[#3a89c0] ring-offset-2'
+    : 'border-neutral-300 hover:border-neutral-500'
 }
 
 function addAvatarShapePath(
@@ -1399,6 +477,7 @@ function createColorRows(manifest: BrandKitManifest): BrandColorRows {
   )
   const configuredRows = manifest.colorSections
     .map((section) => ({
+      columns: section.columns ?? 3,
       label: getDisplayColorSectionLabel(section.label),
       rows: section.rows
         .map((row) =>
@@ -1418,11 +497,15 @@ function createColorRows(manifest: BrandKitManifest): BrandColorRows {
     rows.push(manifest.brandColors.slice(index, index + 3))
   }
 
-  return [{ label: 'Primary', rows }]
+  return [{ columns: 3, label: 'Primary', rows }]
 }
 
 function getDisplayColorSectionLabel(label: string) {
-  return /^brand colors?$/i.test(label.trim()) ? 'Primary' : label
+  const trimmed = label.trim()
+
+  if (/^brand colors?$/i.test(trimmed)) return 'Primary'
+
+  return trimmed.replace(/\s+colors?$/i, '')
 }
 
 function formatAssetCount(count: number) {
@@ -1430,15 +513,40 @@ function formatAssetCount(count: number) {
 }
 
 function DownloadIcon() {
-  return <Download aria-hidden className="obk-button-icon" />
+  return <Download aria-hidden className="h-4 w-4" />
 }
 
 function UploadIcon() {
-  return <Upload aria-hidden className="obk-button-icon" />
+  return <Upload aria-hidden className="h-4 w-4" />
 }
 
 function ResetIcon() {
-  return <RotateCcw aria-hidden className="obk-button-icon" />
+  return <RotateCcw aria-hidden className="h-4 w-4" />
+}
+
+function toastToneClasses(tone: ToastTone) {
+  if (tone === 'error') return 'border-red-200 text-red-950'
+  if (tone === 'info') return 'border-slate-200 text-slate-950'
+
+  return 'border-neutral-200 text-neutral-950'
+}
+
+function ToastStack({ toasts }: { toasts: ToastMessage[] }) {
+  if (!toasts.length) return null
+
+  return (
+    <div className="pointer-events-none fixed bottom-4 left-1/2 z-[140] flex w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 flex-col items-center gap-2">
+      {toasts.map((toast) => (
+        <div
+          className={`pointer-events-auto w-full rounded-md border bg-white px-4 py-3 text-left text-sm font-medium shadow-lg ${toastToneClasses(toast.tone)}`}
+          key={toast.id}
+          role="status"
+        >
+          {toast.message}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function AssetDownloadButton({
@@ -1448,7 +556,7 @@ function AssetDownloadButton({
 }) {
   return (
     <a
-      className="obk-button obk-button-dark"
+      className="inline-flex items-center gap-1 rounded-md bg-[#2b333f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1d232b]"
       download={download.fileName}
       href={getAssetDownloadHref(download.url)}
     >
@@ -1460,7 +568,11 @@ function AssetDownloadButton({
 
 function DownloadAllButton({ href, label = 'Download all' }: { href: string; label?: string }) {
   return (
-    <a className="obk-button" download href={href}>
+    <a
+      className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+      download
+      href={href}
+    >
       <DownloadIcon />
       <span>{label}</span>
     </a>
@@ -1475,18 +587,27 @@ function AssetCard({
   onPreview: (asset: BrandKitAsset) => void
 }) {
   return (
-    <article className="obk-card">
+    <article className="flex h-full flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white">
       <button
-        className="obk-preview"
+        className="flex min-h-[220px] items-center justify-center border-b border-neutral-200 px-6 py-10 transition-opacity hover:opacity-90"
         onClick={() => onPreview(asset)}
         style={transparentPreviewStyle}
         type="button"
       >
-        <img src={asset.previewUrl} alt={asset.title} loading="lazy" />
+        <img
+          src={asset.previewUrl}
+          alt={asset.title}
+          className="max-h-28 w-auto max-w-full object-contain"
+          loading="lazy"
+        />
       </button>
-      <div className="obk-card-body">
-        <h4>{asset.title}</h4>
-        <div className="obk-button-row">
+      <div className="flex flex-1 flex-col justify-between gap-4 p-4">
+        <div>
+          <p className="text-sm font-semibold text-neutral-900">
+            {asset.title}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           {asset.downloads.map((download) => (
             <AssetDownloadButton
               key={`${asset.id}-${download.fileName}`}
@@ -1509,20 +630,22 @@ function AssetGroup({
   onPreview: (asset: BrandKitAsset) => void
 }) {
   return (
-    <section className="obk-group">
-      <div className="obk-group-header">
+    <section className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3>{group.label}</h3>
-          {group.description ? <p>{group.description}</p> : null}
+          <h3 className="text-lg font-semibold text-slate-950">{group.label}</h3>
+          {group.description ? (
+            <p className="mt-1 text-sm text-slate-600">{group.description}</p>
+          ) : null}
         </div>
-        <div className="obk-group-actions">
-          <span className="obk-asset-count">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-slate-500">
             {formatAssetCount(group.items.length)}
           </span>
           <DownloadAllButton href={downloadHref} />
         </div>
       </div>
-      <div className="obk-grid">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {group.items.map((asset) => (
           <AssetCard asset={asset} key={asset.id} onPreview={onPreview} />
         ))}
@@ -1531,39 +654,346 @@ function AssetGroup({
   )
 }
 
-function CopyButton({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false)
-
+function CopyButton({
+  label,
+  onToast,
+  value,
+}: {
+  label: string
+  onToast: ShowToast
+  value: string
+}) {
   async function copy() {
-    await navigator.clipboard.writeText(value)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1000)
+    try {
+      await navigator.clipboard.writeText(value)
+      onToast(`${label} copied.`)
+    } catch {
+      onToast('Could not copy that color value.', 'error')
+    }
   }
 
   return (
     <button
-      className="obk-copy-button"
+      className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
       onClick={() => void copy()}
       title={`Copy ${label}`}
       type="button"
     >
-      <Copy aria-hidden className="obk-copy-icon" />
-      <span>{copied ? 'Copied' : value}</span>
+      <Copy aria-hidden className="h-3.5 w-3.5" />
+      <span>{value}</span>
     </button>
   )
 }
 
-function ColorCard({ color }: { color: BrandKitColor }) {
+function ColorCard({
+  color,
+  onToast,
+}: {
+  color: BrandKitColor
+  onToast: ShowToast
+}) {
   return (
-    <article className="obk-color-card">
-      <div className="obk-swatch" style={{ backgroundColor: color.hex }} />
-      <div className="obk-color-body">
-        <h4>{color.name}</h4>
-        <div className="obk-button-row">
-          <CopyButton label={`${color.name} hex`} value={color.hex} />
+    <article className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+      <div
+        className="h-28 w-full border-b border-neutral-200"
+        style={{ backgroundColor: color.hex }}
+      />
+      <div className="space-y-4 p-4">
+        <div>
+          <p className="text-sm font-semibold text-neutral-900">{color.name}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <CopyButton
+            label={`${color.name} hex`}
+            onToast={onToast}
+            value={color.hex}
+          />
         </div>
       </div>
     </article>
+  )
+}
+
+function PrintCopyButton({
+  label,
+  onToast,
+  value,
+}: {
+  label: string
+  onToast: ShowToast
+  value: string
+}) {
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value)
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      onToast(`${label} copied.`)
+    } catch {
+      onToast('Could not copy that print color value.', 'error')
+    }
+  }
+
+  return (
+    <button
+      aria-label={`Copy ${label}`}
+      className="cursor-pointer text-left font-mono text-xs leading-5 text-neutral-800 transition-colors hover:text-[#3a89c0] hover:underline"
+      onClick={() => void copy()}
+      type="button"
+    >
+      {value}
+    </button>
+  )
+}
+
+function PrintComponentCopyButton({
+  channel,
+  label,
+  onToast,
+  value,
+}: {
+  channel: string
+  label: string
+  onToast: ShowToast
+  value: string
+}) {
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value)
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      onToast(`${label} copied.`)
+    } catch {
+      onToast('Could not copy that print color value.', 'error')
+    }
+  }
+
+  return (
+    <button
+      aria-label={`Copy ${label}`}
+      className="flex cursor-pointer items-baseline gap-1.5 text-left font-mono text-xs leading-5 text-neutral-800 transition-colors hover:text-[#3a89c0] hover:underline"
+      onClick={() => void copy()}
+      type="button"
+    >
+      <span className="w-4 font-sans text-xs font-semibold text-neutral-500">
+        {channel}
+      </span>
+      <span>{value}</span>
+    </button>
+  )
+}
+
+function PrintValueGroup({
+  color,
+  label,
+  onToast,
+  values,
+}: {
+  color: BrandKitPrintColor
+  label: string
+  onToast: ShowToast
+  values: { channel: string; value: string }[]
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold tracking-[0.12em] text-neutral-500 uppercase">
+        {label}
+      </p>
+      <div className="mt-1 flex items-center gap-2">
+        <Copy aria-hidden className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+        <div className="flex items-center gap-3">
+          {values.map((item) =>
+            item.value ? (
+              <PrintComponentCopyButton
+                channel={item.channel}
+                key={item.channel}
+                label={`${color.pantone} ${label} ${item.channel}`}
+                onToast={onToast}
+                value={item.value}
+              />
+            ) : null,
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PrintColorCard({
+  color,
+  onToast,
+}: {
+  color: BrandKitPrintColor
+  onToast: ShowToast
+}) {
+  const swatchRef = useRef<HTMLElement>(null)
+  const [popoverOpen, setPopoverOpen] = useState(false)
+  const [popoverPlacement, setPopoverPlacement] = useState<'top' | 'bottom'>(
+    'bottom',
+  )
+  const [popoverAlignment, setPopoverAlignment] = useState<'left' | 'right'>(
+    'left',
+  )
+  const rgbValues = ['R', 'G', 'B'].map((channel, index) => ({
+    channel,
+    value: color.rgb[index] ?? '',
+  }))
+  const cmykValues = ['C', 'M', 'Y', 'K'].map((channel, index) => ({
+    channel,
+    value: color.cmyk[index] ?? '',
+  }))
+
+  function preparePopover() {
+    const swatch = swatchRef.current
+
+    if (!swatch) {
+      setPopoverOpen(true)
+      return
+    }
+
+    const rect = swatch.getBoundingClientRect()
+    const estimatedPopoverHeight = 220
+    const estimatedPopoverWidth = 320
+    const viewportPadding = 16
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+
+    setPopoverPlacement(
+      spaceBelow < estimatedPopoverHeight && spaceAbove > spaceBelow
+        ? 'top'
+        : 'bottom',
+    )
+    setPopoverAlignment(
+      rect.left + estimatedPopoverWidth > window.innerWidth - viewportPadding
+        ? 'right'
+        : 'left',
+    )
+    setPopoverOpen(true)
+  }
+
+  useEffect(() => {
+    if (!popoverOpen) return
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!swatchRef.current?.contains(event.target as Node)) {
+        setPopoverOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+
+    return () =>
+      document.removeEventListener('pointerdown', closeOnOutsidePointer)
+  }, [popoverOpen])
+
+  return (
+    <article
+      className="relative"
+      onMouseEnter={preparePopover}
+      onMouseLeave={() => setPopoverOpen(false)}
+      ref={swatchRef}
+    >
+      <div className="overflow-hidden rounded-md border border-neutral-200 bg-white shadow-sm">
+        <button
+          aria-label={`${color.pantone} color values`}
+          className="aspect-square w-full border-b border-neutral-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3a89c0]"
+          onClick={preparePopover}
+          onFocus={preparePopover}
+          style={{ backgroundColor: color.hex }}
+          type="button"
+        />
+        <div className="bg-white px-2.5 pt-1.5 pb-2.5 text-left">
+          <p className="text-[10px] font-semibold tracking-[0.12em] text-neutral-500 uppercase">
+            Pantone
+          </p>
+          <p className="mt-0.5 text-xs font-semibold text-neutral-900">
+            {color.pantone}
+          </p>
+        </div>
+      </div>
+      <div
+        className={`absolute z-40 w-max max-w-[calc(100vw-2rem)] min-w-64 ${
+          popoverAlignment === 'right' ? 'right-0' : 'left-0'
+        } ${
+          popoverPlacement === 'top' ? 'bottom-full pb-2' : 'top-full pt-2'
+        } ${
+          popoverOpen ? 'block' : 'hidden'
+        }`}
+      >
+        <div className="relative rounded-lg border border-neutral-200 bg-white p-4 text-left shadow-xl">
+          <div className="absolute top-3 right-3 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-right shadow-sm">
+            <p className="text-[9px] font-semibold tracking-[0.12em] text-neutral-500 uppercase">
+              Pantone
+            </p>
+            <p className="mt-0.5 text-xs font-semibold text-neutral-900">
+              {color.pantone}
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.12em] text-neutral-500 uppercase">
+                Hex
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <Copy aria-hidden className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                <PrintCopyButton
+                  label={`${color.pantone} hex`}
+                  onToast={onToast}
+                  value={color.hex}
+                />
+              </div>
+            </div>
+            <PrintValueGroup
+              color={color}
+              label="RGB"
+              onToast={onToast}
+              values={rgbValues}
+            />
+            <PrintValueGroup
+              color={color}
+              label="CMYK"
+              onToast={onToast}
+              values={cmykValues}
+            />
+          </div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function PrintColorGroups({
+  groups,
+  onToast,
+}: {
+  groups: BrandKitPrintColorGroup[]
+  onToast: ShowToast
+}) {
+  if (!groups.length) return null
+
+  return (
+    <section className="space-y-8">
+      <div>
+        <h3 className="text-lg font-semibold text-neutral-900">Print Colors</h3>
+        <p className="text-sm text-neutral-600">
+          Pantone-aligned swatches for merch, packaging, and print production.
+        </p>
+      </div>
+      {groups.map((group) => (
+        <section className="space-y-5" key={group.label}>
+          <h4 className="text-base font-semibold text-neutral-900">
+            {group.label}
+          </h4>
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-7 xl:grid-cols-10">
+            {group.items.map((color) => (
+              <PrintColorCard
+                color={color}
+                key={`${group.label}-${color.pantone}`}
+                onToast={onToast}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+    </section>
   )
 }
 
@@ -1579,15 +1009,17 @@ function AvatarIconColorChip({
   return (
     <button
       aria-pressed={selected}
-      className={`obk-chip ${selected ? 'is-selected' : ''}`}
+      className="flex w-16 cursor-pointer flex-col items-start gap-2 text-center"
       onClick={onSelect}
       type="button"
     >
       <span
-        className="obk-chip-preview"
+        className={`block aspect-square w-16 rounded-md border transition-colors ${selectionRing(selected)}`}
         style={{ backgroundColor: normalizeHexColor(option.color) }}
       />
-      <span className="obk-chip-label">{option.label}</span>
+      <span className="w-16 text-xs leading-4 font-medium text-neutral-700">
+        {option.label}
+      </span>
     </button>
   )
 }
@@ -1604,19 +1036,21 @@ function AvatarColorChip({
   return (
     <button
       aria-pressed={selected}
-      className={`obk-chip ${selected ? 'is-selected' : ''}`}
+      className="flex w-16 cursor-pointer flex-col items-start gap-2 text-center"
       onClick={onSelect}
       type="button"
     >
       <span
-        className="obk-chip-preview"
+        className={`block aspect-square w-16 rounded-md border transition-colors ${selectionRing(selected)}`}
         style={
           option.color
             ? { backgroundColor: normalizeHexColor(option.color) }
             : transparentPreviewStyle
         }
       />
-      <span className="obk-chip-label">{option.label}</span>
+      <span className="w-16 text-xs leading-4 font-medium text-neutral-700">
+        {option.label}
+      </span>
     </button>
   )
 }
@@ -1635,14 +1069,18 @@ function AvatarShapeChip({
   return (
     <button
       aria-pressed={selected}
-      className={`obk-chip ${selected ? 'is-selected' : ''}`}
+      className="flex w-16 cursor-pointer flex-col items-start gap-2 text-center"
       onClick={onSelect}
       type="button"
     >
-      <span className="obk-chip-preview">
-        <span className={`obk-shape-sample ${getAvatarShapeClass(shape)}`} />
+      <span
+        className={`flex aspect-square w-16 items-center justify-center rounded-md border bg-white transition-colors ${selectionRing(selected)}`}
+      >
+        <span className={`block h-8 w-8 bg-[#2b333f] ${getAvatarShapeClass(shape)}`} />
       </span>
-      <span className="obk-chip-label">{label}</span>
+      <span className="w-16 text-xs leading-4 font-medium text-neutral-700">
+        {label}
+      </span>
     </button>
   )
 }
@@ -1673,13 +1111,15 @@ function AvatarBorderThicknessChip({
   return (
     <button
       aria-pressed={selected}
-      className={`obk-chip ${selected ? 'is-selected' : ''}`}
+      className="flex w-16 cursor-pointer flex-col items-start gap-2 text-center"
       onClick={onSelect}
       type="button"
     >
-      <span className="obk-chip-preview">
+      <span
+        className={`flex aspect-square w-16 items-center justify-center rounded-md border bg-white transition-colors ${selectionRing(selected)}`}
+      >
         <span
-          className="obk-border-sample"
+          className="block h-8 w-8 rounded-[4px] bg-white"
           style={{
             boxShadow:
               thickness === 'none'
@@ -1688,7 +1128,9 @@ function AvatarBorderThicknessChip({
           }}
         />
       </span>
-      <span className="obk-chip-label">{label}</span>
+      <span className="w-16 text-xs leading-4 font-medium text-neutral-700">
+        {label}
+      </span>
     </button>
   )
 }
@@ -1705,12 +1147,18 @@ function AvatarSizeChip({
   return (
     <button
       aria-pressed={selected}
-      className={`obk-chip ${selected ? 'is-selected' : ''}`}
+      className="flex w-16 cursor-pointer flex-col items-start gap-2 text-center"
       onClick={onSelect}
       type="button"
     >
-      <span className="obk-chip-preview">{size}</span>
-      <span className="obk-chip-label">{size}px</span>
+      <span
+        className={`flex aspect-square w-16 items-center justify-center rounded-md border bg-white font-mono text-sm font-semibold text-neutral-800 transition-colors ${selectionRing(selected)}`}
+      >
+        {size}
+      </span>
+      <span className="w-16 text-xs leading-4 font-medium text-neutral-700">
+        {size}px
+      </span>
     </button>
   )
 }
@@ -1910,27 +1358,29 @@ function AvatarGenerator({
   if (!assets.length) return null
 
   return (
-    <section className="obk-avatar">
+    <section className="space-y-5">
       <div>
-        <h3 className="obk-avatar-title">Avatar Generator</h3>
-        <p className="obk-avatar-intro">
+        <h3 className="text-lg font-semibold text-slate-950">Avatar Generator</h3>
+        <p className="mt-1 text-sm text-slate-600">
           Make a profile-ready PNG from the approved icon.
         </p>
       </div>
-      <div className="obk-avatar-grid">
-        <div className="obk-avatar-controls">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+        <div className="relative grid gap-y-12 rounded-md border border-slate-200 bg-white p-6 md:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)]">
           <button
             aria-label="Reset avatar generator"
-            className="obk-reset-button"
+            className="absolute top-3 left-3 z-10 inline-flex h-8 w-8 cursor-pointer items-center justify-center text-slate-500 transition hover:text-blue-700"
             onClick={resetAvatarGenerator}
             title="Reset avatar generator"
             type="button"
           >
             <ResetIcon />
           </button>
-          <div className="obk-avatar-control-group obk-avatar-col-left obk-avatar-row-1">
-            <p className="obk-control-title">Icon</p>
-            <div className="obk-chip-row">
+          <div className="flex w-max max-w-full flex-col gap-4 justify-self-center md:col-start-1 md:row-start-1">
+            <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              Icon
+            </p>
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-4">
               {iconOptions.map((option) => (
                 <AvatarIconColorChip
                   key={option.key}
@@ -1941,9 +1391,11 @@ function AvatarGenerator({
               ))}
             </div>
           </div>
-          <div className="obk-avatar-control-group obk-avatar-col-left obk-avatar-row-2">
-            <p className="obk-control-title">Background</p>
-            <div className="obk-chip-row">
+          <div className="flex w-max max-w-full flex-col gap-4 justify-self-center md:col-start-1 md:row-start-2">
+            <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              Background
+            </p>
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-4">
               {backgroundOptions.map((option) => (
                 <AvatarColorChip
                   key={option.key}
@@ -1954,11 +1406,12 @@ function AvatarGenerator({
               ))}
             </div>
             {background === 'custom' ? (
-              <label className="obk-custom-color-label">
-                Custom
-                <span className="obk-custom-color-row">
+              <label className="flex flex-col gap-2 text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+                <span>Custom</span>
+                <span className="flex items-center gap-2">
                   <input
                     aria-label="Custom background color"
+                    className="h-10 w-10 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-1"
                     onChange={(event) =>
                       setBackgroundCustomHex(event.currentTarget.value)
                     }
@@ -1967,6 +1420,7 @@ function AvatarGenerator({
                   />
                   <input
                     aria-label="Custom background hex"
+                    className="h-10 min-w-0 rounded-md border border-slate-300 bg-white px-2.5 font-mono text-sm text-slate-900"
                     onChange={(event) =>
                       setBackgroundCustomHex(event.currentTarget.value)
                     }
@@ -1977,9 +1431,11 @@ function AvatarGenerator({
               </label>
             ) : null}
           </div>
-          <div className="obk-avatar-control-group obk-avatar-col-left obk-avatar-row-3">
-            <p className="obk-control-title">Shape</p>
-            <div className="obk-chip-row">
+          <div className="flex w-max max-w-full flex-col gap-4 justify-self-center md:col-start-1 md:row-start-3">
+            <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              Shape
+            </p>
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-4">
               {avatarShapeOptions.map((option) => (
                 <AvatarShapeChip
                   key={option.value}
@@ -1991,10 +1447,17 @@ function AvatarGenerator({
               ))}
             </div>
           </div>
-          <div className="obk-avatar-divider" aria-hidden="true" />
-          <div className="obk-avatar-control-group obk-avatar-col-right obk-avatar-row-1">
-            <p className="obk-control-title">Border color</p>
-            <div className="obk-chip-row">
+          <div
+            aria-hidden="true"
+            className="relative hidden self-stretch md:col-start-2 md:row-span-3 md:row-start-1 md:block"
+          >
+            <span className="absolute -top-3 -bottom-3 left-1/2 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-slate-200 to-transparent" />
+          </div>
+          <div className="flex w-max max-w-full flex-col gap-4 justify-self-center md:col-start-3 md:row-start-1">
+            <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              Border color
+            </p>
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-4">
               {borderOptions.map((option) => (
                 <AvatarColorChip
                   key={option.key}
@@ -2005,11 +1468,12 @@ function AvatarGenerator({
               ))}
             </div>
             {border === 'custom' ? (
-              <label className="obk-custom-color-label">
-                Custom
-                <span className="obk-custom-color-row">
+              <label className="flex flex-col gap-2 text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+                <span>Custom</span>
+                <span className="flex items-center gap-2">
                   <input
                     aria-label="Custom border color"
+                    className="h-10 w-10 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-1"
                     onChange={(event) =>
                       setBorderCustomHex(event.currentTarget.value)
                     }
@@ -2018,6 +1482,7 @@ function AvatarGenerator({
                   />
                   <input
                     aria-label="Custom border hex"
+                    className="h-10 min-w-0 rounded-md border border-slate-300 bg-white px-2.5 font-mono text-sm text-slate-900"
                     onChange={(event) =>
                       setBorderCustomHex(event.currentTarget.value)
                     }
@@ -2028,9 +1493,11 @@ function AvatarGenerator({
               </label>
             ) : null}
           </div>
-          <div className="obk-avatar-control-group obk-avatar-col-right obk-avatar-row-2">
-            <p className="obk-control-title">Border thickness</p>
-            <div className="obk-chip-row">
+          <div className="flex w-max max-w-full flex-col gap-4 justify-self-center md:col-start-3 md:row-start-2">
+            <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              Border thickness
+            </p>
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-4">
               {avatarBorderThicknessOptions.map((option) => (
                 <AvatarBorderThicknessChip
                   key={option.value}
@@ -2042,9 +1509,11 @@ function AvatarGenerator({
               ))}
             </div>
           </div>
-          <div className="obk-avatar-control-group obk-avatar-col-right obk-avatar-row-3">
-            <p className="obk-control-title">Size</p>
-            <div className="obk-chip-row">
+          <div className="flex w-max max-w-full flex-col gap-4 justify-self-center md:col-start-3 md:row-start-3">
+            <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              Size
+            </p>
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-4">
               {avatarSizeOptions.map((size) => (
                 <AvatarSizeChip
                   key={size}
@@ -2056,16 +1525,25 @@ function AvatarGenerator({
             </div>
           </div>
         </div>
-        <div className="obk-avatar-preview">
+        <div className="flex min-h-80 flex-col items-center justify-center gap-5 rounded-md border border-slate-200 bg-white p-5 text-center shadow-sm">
           <span
-            className={`obk-avatar-surface ${getAvatarShapeClass(shape)}`}
+            className={`flex aspect-square w-full max-w-64 items-center justify-center overflow-hidden ${getAvatarShapeClass(shape)}`}
             style={previewSurfaceStyle}
           >
-            <canvas ref={previewCanvasRef} aria-label="Avatar preview" />
+            <canvas
+              ref={previewCanvasRef}
+              aria-label="Avatar preview"
+              className="block aspect-square w-full"
+            />
           </span>
-          <label className="obk-avatar-range">
-            <span>Icon padding</span>
+          <label className="flex w-full max-w-64 flex-col gap-3">
+            <span className="flex items-center justify-between gap-3">
+              <span className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+                Icon padding
+              </span>
+            </span>
             <input
+              className="w-full cursor-pointer accent-[#3a89c0]"
               max="34"
               min="0"
               onChange={(event) => setPadding(Number(event.currentTarget.value))}
@@ -2074,7 +1552,7 @@ function AvatarGenerator({
             />
           </label>
           <button
-            className="obk-button obk-button-favicon"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-[#2b333f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1d232b]"
             onClick={() => void downloadAvatar()}
             type="button"
           >
@@ -2082,7 +1560,7 @@ function AvatarGenerator({
             <span>Download PNG ({avatarSize}px)</span>
           </button>
           <button
-            className="obk-button"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 transition-colors hover:border-slate-400 hover:bg-slate-50"
             onClick={() => void downloadFavicons()}
             type="button"
           >
@@ -2091,7 +1569,7 @@ function AvatarGenerator({
           </button>
           {canInstallFavicon ? (
             <button
-              className="obk-button"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 transition-colors hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isInstallingFavicon}
               onClick={() => void installFavicons()}
               type="button"
@@ -2102,7 +1580,11 @@ function AvatarGenerator({
               </span>
             </button>
           ) : null}
-          {status ? <p className="obk-status">{status}</p> : null}
+          {status ? (
+            <p className="max-w-64 text-sm font-medium text-slate-500">
+              {status}
+            </p>
+          ) : null}
         </div>
       </div>
     </section>
@@ -2123,10 +1605,12 @@ function BannerPresetSelect({
   value: string
 }) {
   return (
-    <fieldset className="obk-banner-control">
-      <legend>{label}</legend>
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
+        {label}
+      </legend>
       <select
-        className="obk-select"
+        className="h-8 w-full cursor-pointer rounded-md border border-neutral-300 bg-white px-2.5 text-xs font-medium text-neutral-800 transition-colors hover:border-[#0d2249] hover:bg-slate-50 hover:text-slate-950 focus:border-[#0d2249] focus:ring-[#0d2249] disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
         value={value}
@@ -2155,27 +1639,36 @@ function BannerDotGroup({
   value: string
 }) {
   return (
-    <fieldset className="obk-banner-control">
-      <legend>{label}</legend>
-      <div className="obk-dot-group">
-        {options.map((option) => (
-          <button
-            aria-label={`${label}: ${option.label}`}
-            className={`obk-control-button obk-dot-button ${
-              value === option.key ? 'is-selected' : ''
-            }`}
-            disabled={disabled}
-            key={option.key}
-            onClick={() => onChange(option.key)}
-            title={option.label}
-            type="button"
-          >
-            <span
-              className="obk-color-dot"
-              style={{ backgroundColor: option.hex }}
-            />
-          </button>
-        ))}
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
+        {label}
+      </legend>
+      <div className="inline-flex rounded-md border border-neutral-300 bg-white p-1">
+        {options.map((option) => {
+          const selected = value === option.key
+
+          return (
+            <button
+              aria-label={`${label}: ${option.label}`}
+              className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-all hover:bg-slate-100 hover:shadow-[inset_0_0_0_1px_#64748b] disabled:cursor-not-allowed disabled:opacity-40 ${
+                selected
+                  ? 'bg-slate-100 shadow-[inset_0_0_0_1px_#0d2249]'
+                  : 'bg-white'
+              }`}
+              disabled={disabled}
+              key={option.key}
+              onClick={() => onChange(option.key)}
+              title={option.label}
+              type="button"
+            >
+              <span
+                className="h-4 w-4 rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
+                style={{ backgroundColor: option.hex }}
+              />
+              <span className="sr-only">{option.label}</span>
+            </button>
+          )
+        })}
       </div>
     </fieldset>
   )
@@ -2199,17 +1692,22 @@ function BannerAlignmentGroup({
   value: string
 }) {
   return (
-    <fieldset className="obk-banner-control">
-      <legend>Align</legend>
-      <div className="obk-align-group">
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
+        Align
+      </legend>
+      <div className="inline-flex rounded-md border border-neutral-300 bg-white p-1">
         {options.map((option) => {
           const Icon = bannerAlignmentIcons[option.key] ?? AlignCenter
+          const selected = value === option.key
 
           return (
             <button
               aria-label={`Align ${option.label.toLowerCase()}`}
-              className={`obk-control-button obk-align-button ${
-                value === option.key ? 'is-selected' : ''
+              className={`flex h-7 w-8 cursor-pointer items-center justify-center rounded-md transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                selected
+                  ? 'bg-[#0d2249] text-white hover:bg-slate-800'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 hover:shadow-[inset_0_0_0_1px_#64748b]'
               }`}
               disabled={disabled}
               key={option.key}
@@ -2217,7 +1715,8 @@ function BannerAlignmentGroup({
               title={option.label}
               type="button"
             >
-              <Icon aria-hidden className="obk-align-svg" />
+              <Icon aria-hidden className="h-4 w-4" />
+              <span className="sr-only">{option.label}</span>
             </button>
           )
         })}
@@ -2229,10 +1728,12 @@ function BannerAlignmentGroup({
 function BannerPresetControls({
   controls,
   endpoint,
+  onToast,
   onUpdated,
 }: {
   controls: BrandKitBannerControls
   endpoint: string
+  onToast: ShowToast
   onUpdated: () => void
 }) {
   function getMarkColorOptions(markVariantKey: string) {
@@ -2274,12 +1775,10 @@ function BannerPresetControls({
   )
   const [state, setState] = useState(defaultState)
   const [isApplying, setApplying] = useState(false)
-  const [status, setStatus] = useState('')
   const markColorOptions = getMarkColorOptions(state.markVariant)
 
   async function apply(nextState: BannerPresetState) {
     setApplying(true)
-    setStatus('Updating banners...')
 
     try {
       const response = await fetch(endpoint, {
@@ -2296,11 +1795,11 @@ function BannerPresetControls({
         throw new Error(result.error ?? 'Could not update banner presets.')
       }
 
-      setStatus(`Updated ${result.files?.length ?? 0} banner files.`)
       onUpdated()
     } catch (error) {
-      setStatus(
+      onToast(
         error instanceof Error ? error.message : 'Could not update banner presets.',
+        'error',
       )
     } finally {
       setApplying(false)
@@ -2326,8 +1825,8 @@ function BannerPresetControls({
   }
 
   return (
-    <div className="obk-banner-controls">
-      <div className="obk-banner-control-grid">
+    <div className="mt-6 w-full rounded-md border border-slate-200 bg-white p-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(9rem,1fr)_auto_auto_auto_minmax(9rem,1fr)] lg:items-start">
         <BannerPresetSelect
           disabled={isApplying}
           label="Mark"
@@ -2363,7 +1862,6 @@ function BannerPresetControls({
           value={state.pattern}
         />
       </div>
-      {status ? <p className="obk-status">{status}</p> : null}
     </div>
   )
 }
@@ -2375,6 +1873,7 @@ function BannerCard({
   isCustom,
   previewVersion,
   onCustomStateChange,
+  onToast,
   onUpdated,
 }: {
   asset: BrandKitBannerAsset
@@ -2382,11 +1881,11 @@ function BannerCard({
   endpoint?: string
   isCustom: boolean
   onCustomStateChange: (assetId: string, isCustom: boolean) => void
+  onToast: ShowToast
   onUpdated: () => void
   previewVersion: number
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [status, setStatus] = useState('')
   const [isReplacing, setReplacing] = useState(false)
   const [isResetting, setResetting] = useState(false)
   const previewUrl = previewVersion
@@ -2402,7 +1901,7 @@ function BannerCard({
     formData.append('assetId', asset.id)
     formData.append('file', file)
     setReplacing(true)
-    setStatus('Replacing banner...')
+    onToast('Uploading custom banner...', 'info')
 
     try {
       const response = await fetch(endpoint, {
@@ -2419,11 +1918,12 @@ function BannerCard({
       }
 
       onCustomStateChange(asset.id, result.isCustom ?? true)
-      setStatus('Custom banner uploaded.')
+      onToast('Custom banner uploaded.')
       onUpdated()
     } catch (error) {
-      setStatus(
+      onToast(
         error instanceof Error ? error.message : 'Could not replace banner image.',
+        'error',
       )
     } finally {
       setReplacing(false)
@@ -2434,7 +1934,7 @@ function BannerCard({
     if (!endpoint) return
 
     setResetting(true)
-    setStatus('Resetting banner...')
+    onToast('Resetting banner...', 'info')
 
     try {
       const response = await fetch(endpoint, {
@@ -2452,11 +1952,12 @@ function BannerCard({
       }
 
       onCustomStateChange(asset.id, result.isCustom ?? false)
-      setStatus('Banner reset to default.')
+      onToast('Banner reset to default.')
       onUpdated()
     } catch (error) {
-      setStatus(
+      onToast(
         error instanceof Error ? error.message : 'Could not reset banner image.',
+        'error',
       )
     } finally {
       setResetting(false)
@@ -2471,19 +1972,31 @@ function BannerCard({
   }
 
   return (
-    <article className="obk-banner-card" style={{ width: previewWidth }}>
+    <article
+      className="max-w-full overflow-hidden rounded-lg border border-neutral-200 bg-white"
+      style={{ width: previewWidth }}
+    >
       <div
-        className="obk-banner-preview"
+        className="relative w-full overflow-hidden border-b border-neutral-200 bg-slate-100"
         style={{ aspectRatio: `${asset.width} / ${asset.height}` }}
       >
-        <img src={previewUrl} alt={asset.title} loading="lazy" />
+        <img
+          src={previewUrl}
+          alt={asset.title}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
       </div>
-      <div className="obk-banner-card-body">
+      <div className="space-y-4 p-4">
         <div>
-          <h4>{asset.title}</h4>
-          <p>{asset.description}</p>
+          <p className="text-sm font-semibold text-neutral-900">
+            {asset.title}
+          </p>
+          <p className="mt-1 font-mono text-xs text-neutral-500">
+            {asset.description}
+          </p>
         </div>
-        <div className="obk-button-row">
+        <div className="flex flex-wrap items-center gap-2">
           {asset.downloads.map((download) => (
             <AssetDownloadButton
               key={`${asset.id}-${download.fileName}`}
@@ -2494,13 +2007,13 @@ function BannerCard({
             <>
               <input
                 accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                className="obk-file-input"
+                className="sr-only"
                 onChange={handleFileChange}
                 ref={inputRef}
                 type="file"
               />
               <button
-                className="obk-file-button"
+                className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isReplacing}
                 onClick={() => inputRef.current?.click()}
                 type="button"
@@ -2511,7 +2024,7 @@ function BannerCard({
               {isCustom ? (
                 <button
                   aria-label="Reset to default"
-                  className="obk-file-button obk-icon-button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isReplacing || isResetting}
                   onClick={() => void resetBanner()}
                   title="Reset to default"
@@ -2523,7 +2036,6 @@ function BannerCard({
             </>
           ) : null}
         </div>
-        {status ? <p className="obk-status">{status}</p> : null}
       </div>
     </article>
   )
@@ -2536,6 +2048,7 @@ function BannerGroup({
   group,
   previewVersion,
   onCustomStateChange,
+  onToast,
   onUpdated,
 }: {
   canUseDevActions: boolean
@@ -2543,16 +2056,21 @@ function BannerGroup({
   endpoints?: BrandKitPageEndpoints
   group: BrandKitBannerGroup
   onCustomStateChange: (assetId: string, isCustom: boolean) => void
+  onToast: ShowToast
   onUpdated: () => void
   previewVersion: number
 }) {
   return (
-    <section className="obk-banner-group">
+    <section className="space-y-5">
       <div>
-        <h3>{group.label}</h3>
-        {group.description ? <p>{group.description}</p> : null}
+        <h3 className="text-sm font-semibold tracking-[0.12em] text-neutral-500 uppercase">
+          {group.label}
+        </h3>
+        {group.description ? (
+          <p className="mt-1 text-sm text-slate-600">{group.description}</p>
+        ) : null}
       </div>
-      <div className="obk-banner-list">
+      <div className="flex flex-col gap-4">
         {group.items.map((asset) => (
           <BannerCard
             asset={asset}
@@ -2561,6 +2079,7 @@ function BannerGroup({
             isCustom={customBannerIds.has(asset.id)}
             key={asset.id}
             onCustomStateChange={onCustomStateChange}
+            onToast={onToast}
             onUpdated={onUpdated}
             previewVersion={previewVersion}
           />
@@ -2596,31 +2115,41 @@ function Lightbox({
   return (
     <div
       aria-modal="true"
-      className="obk-lightbox"
+      className="fixed inset-0 z-[120] bg-black/70 p-4 sm:p-8"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
       role="dialog"
     >
-      <div className="obk-lightbox-align">
-        <div className="obk-lightbox-panel">
-          <div className="obk-lightbox-preview">
-            <div className="obk-lightbox-checker" style={transparentPreviewStyle}>
+      <div className="flex min-h-full items-center justify-center">
+        <div className="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl">
+          <div className="flex min-h-[60vh] items-center justify-center bg-[#f7f7f7] px-8 py-10 sm:px-12">
+            <div
+              className="max-w-full overflow-auto rounded-md border border-neutral-300 p-4 shadow-sm"
+              style={transparentPreviewStyle}
+            >
               <img
                 src={lightboxDownload?.url ?? asset.previewUrl}
                 alt={asset.title}
+                className="block h-auto max-h-[70vh] w-auto max-w-full"
               />
             </div>
           </div>
-          <div className="obk-lightbox-body">
+          <div className="flex flex-col gap-4 border-t border-neutral-200 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="obk-lightbox-title">{asset.title}</h2>
-              <p className="obk-lightbox-file">
+              <h2 className="text-lg font-semibold text-neutral-900">
+                {asset.title}
+              </h2>
+              <p className="mt-1 font-mono text-xs text-neutral-500">
                 {lightboxDownload?.fileName ?? assetFileLabel(asset)}
               </p>
             </div>
-            <div className="obk-button-row">
-              <button className="obk-button" onClick={onClose} type="button">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+                onClick={onClose}
+                type="button"
+              >
                 Close
               </button>
               {asset.downloads.map((download) => (
@@ -2644,6 +2173,8 @@ export function BrandKitPage({
   manifest,
 }: BrandKitPageProps) {
   const [selectedAsset, setSelectedAsset] = useState<BrandKitAsset | null>(null)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const toastSequence = useRef(0)
   const [bannerPreviewVersion, setBannerPreviewVersion] = useState(0)
   const [customBannerIds, setCustomBannerIds] = useState(
     () =>
@@ -2691,6 +2222,16 @@ export function BrandKitPage({
   const canUseCustomBannerUploads =
     canUseDevActions && process.env.NODE_ENV !== 'production'
 
+  function showToast(message: string, tone: ToastTone = 'success') {
+    const id = Date.now() + toastSequence.current
+
+    toastSequence.current += 1
+    setToasts((current) => [...current, { id, message, tone }].slice(-4))
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id))
+    }, 3200)
+  }
+
   function updateCustomBannerState(assetId: string, isCustom: boolean) {
     setCustomBannerIds((current) => {
       const next = new Set(current)
@@ -2720,44 +2261,54 @@ export function BrandKitPage({
   }
 
   return (
-    <div className="obk-shell">
-      <style>{styles}</style>
-      <header className="obk-header">
-        <div className="obk-wrap obk-header-inner">
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="grid gap-10 lg:grid-cols-[1fr_360px] lg:items-center">
           <div>
-            <a className="obk-brand-link" href={homeUrl}>
+            <a
+              className="text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase transition-colors hover:text-neutral-950"
+              href={homeUrl}
+            >
               {brandLabel}
             </a>
-            <h1 className="obk-title">Brand Kit</h1>
-            <p className="obk-copy">{deterministicIntro}</p>
-            <nav className="obk-nav" aria-label="Brand Kit sections">
+            <h1 className="mt-3 font-display text-5xl font-medium text-slate-950">
+              Brand Kit
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+              {deterministicIntro}
+            </p>
+            <nav
+              className="mt-8 flex flex-wrap items-center gap-3"
+              aria-label="Brand Kit sections"
+            >
               <a
-                className="obk-nav-link"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-700 underline-offset-4 transition-colors hover:text-neutral-950 hover:underline"
                 href="#logos"
                 onClick={(event) => scrollToSection(event, 'logos')}
               >
-                <ArrowDown aria-hidden className="obk-nav-icon" />
+                <ArrowDown aria-hidden className="h-3.5 w-3.5" />
                 <span>Logos</span>
               </a>
               <a
-                className="obk-nav-link"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-700 underline-offset-4 transition-colors hover:text-neutral-950 hover:underline"
                 href="#colors"
                 onClick={(event) => scrollToSection(event, 'colors')}
               >
-                <ArrowDown aria-hidden className="obk-nav-icon" />
+                <ArrowDown aria-hidden className="h-3.5 w-3.5" />
                 <span>Colors</span>
               </a>
               {manifest.bannerGroups.length ? (
                 <a
-                  className="obk-nav-link"
+                  className="inline-flex items-center gap-1.5 pr-2 text-sm font-medium text-neutral-700 underline-offset-4 transition-colors hover:text-neutral-950 hover:underline sm:pr-4"
                   href="#banners"
                   onClick={(event) => scrollToSection(event, 'banners')}
                 >
-                  <ArrowDown aria-hidden className="obk-nav-icon" />
+                  <ArrowDown aria-hidden className="h-3.5 w-3.5" />
                   <span>Banners</span>
                 </a>
               ) : null}
-              <span className="obk-asset-count">
+              <span className="text-sm text-slate-500">
                 {formatAssetCount(totalAssetCount)}
               </span>
               {manifest.downloads.allAssets ? (
@@ -2766,23 +2317,32 @@ export function BrandKitPage({
             </nav>
           </div>
           {heroAsset ? (
-            <div className="obk-hero-media">
-              <div className="obk-hero-asset">
-                <img src={heroAsset.previewUrl} alt={heroAsset.title} />
+            <div className="flex items-center justify-start lg:justify-end">
+              <div className="relative flex aspect-[673/489] w-full max-w-xs items-center justify-center">
+                <img
+                  src={heroAsset.previewUrl}
+                  alt={heroAsset.title}
+                  className="h-full w-full object-contain"
+                />
               </div>
             </div>
           ) : null}
+          </div>
         </div>
       </header>
 
       <main>
-        <section className="obk-section obk-section-muted" id="logos">
-          <div className="obk-wrap obk-section-inner">
-            <div className="obk-section-heading">
-              <p className="obk-eyebrow">Logos</p>
-              <h2>Approved marks</h2>
+        <section className="border-b border-slate-200 bg-slate-50" id="logos">
+          <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase">
+                Logos
+              </p>
+              <h2 className="mt-3 font-display text-4xl font-medium text-slate-950">
+                Approved marks
+              </h2>
             </div>
-            <div className="obk-stack">
+            <div className="mt-10 space-y-12">
               {manifest.assetGroups.map((group) => (
                 <AssetGroup
                   downloadHref={`${manifest.route}/download/${group.key}`}
@@ -2801,54 +2361,81 @@ export function BrandKitPage({
           </div>
         </section>
 
-        <section className="obk-section" id="colors">
-          <div className="obk-wrap obk-section-inner">
-            <div className="obk-section-heading">
-              <p className="obk-eyebrow">Colors</p>
-              <h2>Color system</h2>
+        <section className="bg-white" id="colors">
+          <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase">
+                Colors
+              </p>
+              <h2 className="mt-3 font-display text-4xl font-medium text-slate-950">
+                Color system
+              </h2>
             </div>
-            <div className="obk-color-group">
-              <div>
-                <h3>Brand Colors</h3>
-                <p>Core digital colors for product and web work.</p>
-              </div>
-              <div className="obk-color-sections">
-                {brandColorRows.map((section) => (
-                  <section className="obk-color-section" key={section.label}>
-                    <h4 className="obk-color-section-title">{section.label}</h4>
-                    <div className="obk-color-rows">
-                      {section.rows.map((row, index) => (
-                        <div
-                          className={`obk-color-row obk-color-row-${Math.min(
-                            row.length,
-                            3,
-                          )}`}
-                          key={`${section.label}-${index}`}
-                        >
-                          {row.map((color) => (
-                            <ColorCard color={color} key={color.name} />
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
+            <div className="mt-12 space-y-14">
+              <section className="space-y-5">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-950">
+                    Brand Colors
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Core digital colors for product and web work.
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  {brandColorRows.map((section) => (
+                    <section className="space-y-3" key={section.label}>
+                      <h4 className="text-sm font-semibold tracking-[0.12em] text-neutral-500 uppercase">
+                        {section.label}
+                      </h4>
+                      <div className="space-y-4">
+                        {section.rows.map((row, index) => (
+                          <div
+                            className={`grid gap-4 ${
+                              section.columns === 2
+                                ? 'sm:grid-cols-2'
+                                : 'sm:grid-cols-2 lg:grid-cols-3'
+                            }`}
+                            key={`${section.label}-${index}`}
+                          >
+                            {row.map((color) => (
+                              <ColorCard
+                                color={color}
+                                key={color.name}
+                                onToast={showToast}
+                              />
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </section>
+              <PrintColorGroups
+                groups={manifest.printColorGroups ?? []}
+                onToast={showToast}
+              />
             </div>
           </div>
         </section>
 
         {manifest.bannerGroups.length ? (
-          <section className="obk-section-banners" id="banners">
-            <div className="obk-wrap obk-section-inner">
-              <div className="obk-section-heading-row">
-                <div className="obk-section-heading">
-                  <p className="obk-eyebrow">Banners</p>
-                  <h2>Social profile assets</h2>
-                  <p>Ready-to-use PNG cover images sized for each platform.</p>
+          <section className="border-y border-slate-200 bg-slate-50" id="banners">
+            <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase">
+                    Banners
+                  </p>
+                  <h2 className="mt-3 font-display text-4xl font-medium text-slate-950">
+                    Social profile assets
+                  </h2>
+                  <p className="mt-4 text-base leading-7 text-slate-600">
+                    Ready-to-use PNG cover images sized for each platform.
+                  </p>
                 </div>
-                <div className="obk-group-actions obk-section-heading-actions">
-                  <span className="obk-asset-count">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-slate-500">
                     {formatAssetCount(bannerAssetCount)}
                   </span>
                   {manifest.downloads.bannerAssets ? (
@@ -2860,10 +2447,11 @@ export function BrandKitPage({
                 <BannerPresetControls
                   controls={bannerControls}
                   endpoint={endpoints.bannerPresets}
+                  onToast={showToast}
                   onUpdated={() => setBannerPreviewVersion(Date.now())}
                 />
               ) : null}
-              <div className="obk-banner-stack">
+              <div className="mt-12 space-y-10">
                 {manifest.bannerGroups.map((group) => (
                   <BannerGroup
                     canUseDevActions={canUseCustomBannerUploads}
@@ -2872,6 +2460,7 @@ export function BrandKitPage({
                     group={group}
                     key={group.key}
                     onCustomStateChange={updateCustomBannerState}
+                    onToast={showToast}
                     onUpdated={() => setBannerPreviewVersion(Date.now())}
                     previewVersion={bannerPreviewVersion}
                   />
@@ -2882,19 +2471,24 @@ export function BrandKitPage({
         ) : null}
       </main>
 
-      <footer className="obk-footer">
-        <div className="obk-wrap obk-footer-inner">
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
           {footerAsset ? (
-            <div className="obk-footer-logo">
-              <img src={footerAsset.previewUrl} alt={footerAsset.title} />
+            <div className="relative h-12 w-40">
+              <img
+                src={footerAsset.previewUrl}
+                alt={footerAsset.title}
+                className="h-full w-full object-contain"
+              />
             </div>
           ) : null}
-          <p>
+          <p className="text-sm text-slate-500 md:text-right">
             &copy; {currentYear} {manifest.brand.name}. All rights reserved.
           </p>
         </div>
       </footer>
       <Lightbox asset={selectedAsset} onClose={() => setSelectedAsset(null)} />
+      <ToastStack toasts={toasts} />
     </div>
   )
 }

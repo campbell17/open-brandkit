@@ -7,6 +7,7 @@ Reusable code must not include project-specific names, copy, or asset paths.
 ## Deterministic Defaults
 
 - Page shell: slate-50 background, slate-950 text, white header/footer.
+- The Next.js adapter is Tailwind-first. Deterministic component styles should be expressed as Tailwind class names in JSX, not as a parallel hand-maintained vanilla CSS clone.
 - Content width: 1280px max container with responsive side padding.
 - Header: white with slate-200 bottom border, two-column desktop grid, brand icon preview on the right when an icon is available.
 - Header copy: `Approved marks, avatar-ready presets, social profile assets, and the current color system.`
@@ -24,7 +25,9 @@ Reusable code must not include project-specific names, copy, or asset paths.
 - Logo groups render in this order when present: Logo Lockups, Wordmarks, Icons. `wordmark`, `word mark`, `word-mark`, and `word_mark` must resolve to Wordmarks before any broad icon/mark matcher runs. Missing group descriptions fall back to deterministic generic copy.
 - The logo lightbox uses a black overlay, white panel, large checkerboard preview, close button, and all asset download actions.
 - Color cards use a full-width 112px swatch and a compact hex copy button.
-- The color section uses `Brand Colors` as the group heading and `Primary` as the default color subsection heading.
+- The color section uses `Brand Colors` as the group heading. Markdown color sources may define `### Primary Colors` and `### Secondary Colors` subsections under it.
+- Primary colors render in a two-column layout. Secondary colors render in a three-column layout. This is deterministic and should not be inferred from the number of colors in the final row.
+- A Markdown `## Print Color Shades` section is a deterministic print-color mode. It renders after Brand Colors as Pantone-style chips grouped by `###` headings, with hover/focus popovers for Pantone, hex, RGB components, and CMYK components.
 - Avatar controls use chip groups for icon color, background, shape, border color, border thickness, and size; the preview panel includes icon padding, PNG download, favicon downloads, and local favicon install when a Next route handler is wired.
 - Avatar icon-color chips are inferred from available icon files and brand colors. Wordmark-looking assets must never be used by the avatar generator. The chips do not show the icon artwork; the artwork appears in the preview.
 - Avatar background options are Transparent, Black, White, and Custom.

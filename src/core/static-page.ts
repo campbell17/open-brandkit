@@ -3,6 +3,8 @@ import type {
   BrandKitAssetGroup,
   BrandKitColor,
   BrandKitManifest,
+  BrandKitPrintColor,
+  BrandKitPrintColorGroup,
 } from './types.js'
 
 function escapeHtml(value: string) {
@@ -582,6 +584,189 @@ h1 {
   gap: 16px;
   padding: 16px;
 }
+.print-colors {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  margin-top: 48px;
+}
+.print-intro h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.print-family h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.print-intro p {
+  margin: 4px 0 0;
+  color: var(--copy);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.print-family {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.print-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.print-card {
+  position: relative;
+  min-width: 0;
+}
+.print-card:hover,
+.print-card:focus-within {
+  z-index: 50;
+}
+.print-chip {
+  overflow: hidden;
+  border: 1px solid var(--neutral-line);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.06);
+}
+.print-swatch {
+  display: block;
+  aspect-ratio: 1;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--neutral-line);
+  cursor: pointer;
+}
+.print-swatch:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.print-chip-body {
+  padding: 6px 10px 10px;
+  text-align: left;
+}
+.print-kicker {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.print-chip .print-kicker {
+  font-size: 10px;
+}
+.print-popover-chip .print-kicker {
+  font-size: 9px;
+}
+.print-value-group > .print-kicker {
+  font-size: 12px;
+}
+.print-pantone {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.print-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 40;
+  display: none;
+  width: max-content;
+  min-width: 256px;
+  max-width: calc(100vw - 32px);
+  padding-top: 8px;
+}
+.print-card:hover .print-popover,
+.print-card:focus-within .print-popover {
+  display: block;
+}
+.print-popover-panel {
+  position: relative;
+  border: 1px solid var(--neutral-line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 16px;
+  text-align: left;
+  box-shadow: 0 20px 40px rgba(15,23,42,0.18);
+}
+.print-popover-chip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: 1px solid var(--neutral-line);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 6px 10px;
+  text-align: right;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.08);
+}
+.print-values {
+  display: flex;
+  max-width: 180px;
+  flex-direction: column;
+  gap: 12px;
+}
+.print-value-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.print-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.print-copy-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: #a3a3a3;
+  stroke-width: 2;
+}
+.print-component-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.print-copy-value,
+.print-component-copy {
+  border: 0;
+  background: transparent;
+  color: #262626;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 20px;
+  padding: 0;
+  text-align: left;
+  transition: color 160ms ease;
+}
+.print-component-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.print-copy-value:hover,
+.print-component-copy:hover {
+  color: #3a89c0;
+  text-decoration: underline;
+}
+.print-channel {
+  color: var(--muted);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+}
 .banner-stack {
   display: flex;
   flex-direction: column;
@@ -728,6 +913,7 @@ h1 {
   .color-row-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .print-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .lightbox { padding: 32px; }
   .lightbox-body {
     flex-direction: row;
@@ -781,6 +967,10 @@ h1 {
     align-items: stretch;
   }
   .color-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .print-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .print-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
 }
 `
 
@@ -1185,7 +1375,8 @@ function colorRows(manifest: BrandKitManifest) {
   )
   const configured = manifest.colorSections
     .map((section) => ({
-      label: /^brand colors?$/i.test(section.label.trim()) ? 'Primary' : section.label,
+      columns: section.columns ?? 3,
+      label: getDisplayColorSectionLabel(section.label),
       rows: section.rows
         .map((row) =>
           row
@@ -1204,7 +1395,15 @@ function colorRows(manifest: BrandKitManifest) {
     rows.push(manifest.brandColors.slice(index, index + 3))
   }
 
-  return [{ label: 'Primary', rows }]
+  return [{ columns: 3 as const, label: 'Primary', rows }]
+}
+
+function getDisplayColorSectionLabel(label: string) {
+  const trimmed = label.trim()
+
+  if (/^brand colors?$/i.test(trimmed)) return 'Primary'
+
+  return trimmed.replace(/\s+colors?$/i, '')
 }
 
 function renderColors(manifest: BrandKitManifest) {
@@ -1217,7 +1416,7 @@ function renderColors(manifest: BrandKitManifest) {
             ${section.rows
               .map(
                 (row, index) => `
-                  <div class="color-row color-row-${Math.min(row.length, 3)}" data-row="${index}">
+                  <div class="color-row color-row-${Math.min(section.columns, 3)}" data-row="${index}">
                     ${row
                       .map(
                         (color) => `
@@ -1242,6 +1441,111 @@ function renderColors(manifest: BrandKitManifest) {
       `,
     )
     .join('')
+}
+
+function renderPrintCopyButton(value: string) {
+  return `<button class="print-copy-value" type="button" data-copy="${escapeHtml(value)}" data-copy-static="true">${escapeHtml(value)}</button>`
+}
+
+function renderPrintValueGroup({
+  channels,
+  color,
+  label,
+}: {
+  channels: string[]
+  color: BrandKitPrintColor
+  label: string
+}) {
+  const sourceValues = label === 'RGB' ? color.rgb : color.cmyk
+  const values = channels
+    .map((channel, index) => ({ channel, value: sourceValues[index] }))
+    .filter((item) => item.value)
+
+  if (!values.length) return ''
+
+  return `
+    <div class="print-value-group">
+      <p class="print-kicker">${escapeHtml(label)}</p>
+      <div class="print-copy-row">
+        ${lucideIcon('copy', 'print-copy-icon')}
+        <div class="print-component-row">
+          ${values
+            .map(
+              (item) => `
+                <button class="print-component-copy" type="button" data-copy="${escapeHtml(item.value ?? '')}" data-copy-static="true">
+                  <span class="print-channel">${escapeHtml(item.channel)}</span>
+                  <span>${escapeHtml(item.value ?? '')}</span>
+                </button>
+              `,
+            )
+            .join('')}
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderPrintColorCard(color: BrandKitPrintColor) {
+  return `
+    <article class="print-card">
+      <div class="print-chip">
+        <button
+          aria-label="${escapeHtml(color.pantone)} color values"
+          class="print-swatch"
+          style="background-color:${escapeHtml(color.hex)}"
+          type="button"
+        ></button>
+        <div class="print-chip-body">
+          <p class="print-kicker">Pantone</p>
+          <p class="print-pantone">${escapeHtml(color.pantone)}</p>
+        </div>
+      </div>
+      <div class="print-popover">
+        <div class="print-popover-panel">
+          <div class="print-popover-chip">
+            <p class="print-kicker">Pantone</p>
+            <p class="print-pantone">${escapeHtml(color.pantone)}</p>
+          </div>
+          <div class="print-values">
+            <div class="print-value-group">
+              <p class="print-kicker">Hex</p>
+              <div class="print-copy-row">
+                ${lucideIcon('copy', 'print-copy-icon')}
+                ${renderPrintCopyButton(color.hex)}
+              </div>
+            </div>
+            ${renderPrintValueGroup({ channels: ['R', 'G', 'B'], color, label: 'RGB' })}
+            ${renderPrintValueGroup({ channels: ['C', 'M', 'Y', 'K'], color, label: 'CMYK' })}
+          </div>
+        </div>
+      </div>
+    </article>
+  `
+}
+
+function renderPrintColorGroups(groups: BrandKitPrintColorGroup[]) {
+  if (!groups.length) return ''
+
+  return `
+    <section class="print-colors">
+      <div class="print-intro">
+        <h3>Print Colors</h3>
+        <p>Pantone-aligned swatches for merch, packaging, and print production.</p>
+      </div>
+      ${groups
+        .map(
+          (group) => `
+            <section class="print-family">
+              <h4>${escapeHtml(group.label)}</h4>
+              <div class="print-grid">
+                ${group.items.map(renderPrintColorCard).join('')}
+              </div>
+            </section>
+          `,
+        )
+        .join('')}
+    </section>
+  `
 }
 
 function renderBanners(manifest: BrandKitManifest) {
@@ -1318,6 +1622,7 @@ function clientScript(manifest: BrandKitManifest) {
       button.addEventListener('click', async () => {
         const value = button.getAttribute('data-copy') || '';
         await navigator.clipboard.writeText(value);
+        if (button.hasAttribute('data-copy-static')) return;
         const label = button.querySelector('span');
         const original = label?.textContent || value;
         if (label) label.textContent = 'Copied';
@@ -1640,6 +1945,7 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
               <p>Core digital colors for product and web work.</p>
             </div>
             <div class="color-sections">${renderColors(manifest)}</div>
+            ${renderPrintColorGroups(manifest.printColorGroups ?? [])}
           </div>
         </div>
       </section>

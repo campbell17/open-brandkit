@@ -1053,6 +1053,153 @@ async function writeNextAdapterFiles({
   })
 }
 
+function getTailwindSourceDirective(cssPath: string, cwd: string) {
+  let sourcePath = toPosixPath(
+    path.relative(
+      path.dirname(cssPath),
+      path.join(cwd, 'node_modules', 'open-brandkit', 'dist'),
+    ),
+  )
+
+  if (!sourcePath.startsWith('.')) {
+    sourcePath = `./${sourcePath}`
+  }
+
+  return `@source "${sourcePath}";`
+}
+
+function getTailwindContentGlob(configPath: string, cwd: string) {
+  let sourcePath = toPosixPath(
+    path.relative(
+      path.dirname(configPath),
+      path.join(cwd, 'node_modules', 'open-brandkit', 'dist'),
+    ),
+  )
+
+  if (!sourcePath.startsWith('.')) {
+    sourcePath = `./${sourcePath}`
+  }
+
+  return `${sourcePath}/**/*.{js,mjs}`
+}
+
+async function findTailwindCssPath(cwd: string, appDir: string) {
+  const candidates = [
+    path.join(cwd, appDir, 'globals.css'),
+    path.join(cwd, appDir, 'global.css'),
+    path.join(cwd, 'src/app/globals.css'),
+    path.join(cwd, 'src/app/global.css'),
+    path.join(cwd, 'app/globals.css'),
+    path.join(cwd, 'app/global.css'),
+    path.join(cwd, 'src/styles/tailwind.css'),
+    path.join(cwd, 'src/styles/globals.css'),
+    path.join(cwd, 'styles/tailwind.css'),
+    path.join(cwd, 'styles/globals.css'),
+  ]
+
+  for (const candidate of Array.from(new Set(candidates))) {
+    if (!(await pathExists(candidate))) continue
+
+    const source = await readFile(candidate, 'utf8')
+
+    if (source.includes('@import "tailwindcss"') || source.includes("@import 'tailwindcss'")) {
+      return candidate
+    }
+  }
+
+  return null
+}
+
+async function findTailwindConfigPaths(cwd: string) {
+  const candidates = [
+    'tailwind.config.ts',
+    'tailwind.config.js',
+    'tailwind.config.mjs',
+    'tailwind.config.cjs',
+  ].map((fileName) => path.join(cwd, fileName))
+  const existing: string[] = []
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) existing.push(candidate)
+  }
+
+  return existing
+}
+
+async function updateTailwindConfigContent({
+  created,
+  cwd,
+  skipped,
+}: {
+  created: string[]
+  cwd: string
+  skipped: string[]
+}) {
+  const configPaths = await findTailwindConfigPaths(cwd)
+  let updated = false
+
+  for (const configPath of configPaths) {
+    const source = await readFile(configPath, 'utf8')
+    const contentGlob = getTailwindContentGlob(configPath, cwd)
+
+    if (source.includes('open-brandkit/dist')) {
+      skipped.push(configPath)
+      updated = true
+      continue
+    }
+
+    const nextSource = source.replace(
+      /(content\s*:\s*\[)([\s\S]*?)(\n\s*\])/,
+      (_match, start: string, body: string, end: string) =>
+        `${start}${body}\n    '${contentGlob}',${end}`,
+    )
+
+    if (nextSource === source) continue
+
+    await writeFile(configPath, nextSource)
+    created.push(configPath)
+    updated = true
+  }
+
+  return updated
+}
+
+async function updateTailwindSource({
+  appDir,
+  created,
+  cwd,
+  skipped,
+}: {
+  appDir: string
+  created: string[]
+  cwd: string
+  skipped: string[]
+}) {
+  if (await updateTailwindConfigContent({ created, cwd, skipped })) {
+    return
+  }
+
+  const cssPath = await findTailwindCssPath(cwd, appDir)
+
+  if (!cssPath) {
+    skipped.push('Tailwind source configuration')
+    return
+  }
+
+  const source = await readFile(cssPath, 'utf8')
+  const directive = getTailwindSourceDirective(cssPath, cwd)
+
+  if (source.includes('open-brandkit') || source.includes(directive)) {
+    skipped.push(cssPath)
+    return
+  }
+
+  const nextSource = `${source.trimEnd()}\n${directive}\n`
+
+  await writeFile(cssPath, nextSource)
+  created.push(cssPath)
+}
+
 async function updatePackageJson({
   created,
   cwd,
@@ -1076,6 +1223,7 @@ async function updatePackageJson({
       : 'latest'
   const scripts = packageJson.value.scripts ?? {}
   const dependencies = packageJson.value.dependencies ?? {}
+  const devDependencies = packageJson.value.devDependencies ?? {}
   const nextPackageValue = {
     ...packageJson.value,
     scripts: {
@@ -1091,6 +1239,14 @@ async function updatePackageJson({
         : {
             ...dependencies,
             [packageName]: packageVersion,
+          },
+    devDependencies:
+      dependencies.tailwindcss || devDependencies.tailwindcss
+        ? devDependencies
+        : {
+            ...devDependencies,
+            '@tailwindcss/postcss': '^4.0.0',
+            tailwindcss: '^4.0.0',
           },
   }
 
@@ -1164,6 +1320,12 @@ async function initProject(cwd: string, args: string[]): Promise<InitResult> {
       created,
       cwd,
       force,
+      skipped,
+    })
+    await updateTailwindSource({
+      appDir: answers.appDir,
+      created,
+      cwd,
       skipped,
     })
   }

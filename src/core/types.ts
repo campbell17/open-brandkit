@@ -34,6 +34,18 @@ export type BrandKitColor = {
   cmyk?: string
 }
 
+export type BrandKitPrintColor = {
+  pantone: string
+  hex: string
+  rgb: string[]
+  cmyk: string[]
+}
+
+export type BrandKitPrintColorGroup = {
+  label: string
+  items: BrandKitPrintColor[]
+}
+
 export type BrandKitColorSource =
   | {
       type: 'markdown-table'
@@ -55,6 +67,7 @@ export type BrandKitColorSource =
 
 export type BrandKitColorSection = {
   label: string
+  columns?: 1 | 2 | 3
   rows: string[][]
 }
 
@@ -170,6 +183,7 @@ export type BrandKitManifest = {
   assetGroups: BrandKitAssetGroup[]
   brandColors: BrandKitColor[]
   colorSections: BrandKitColorSection[]
+  printColorGroups: BrandKitPrintColorGroup[]
   bannerGroups: BrandKitBannerGroup[]
   downloads: {
     allAssets?: string
