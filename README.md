@@ -1,36 +1,77 @@
 # Open BrandKit
 
-Open BrandKit is an early-stage installer/build tool that turns ordinary brand source files into a working `/brandkit` page inside an existing website repo.
+Open BrandKit is an early-stage installer and build package that turns brand
+source files into a working `/brandkit` page inside an existing website repo.
 
-The intended developer story:
+Current package version: `0.1.2`.
+
+The intended developer story is:
 
 ```bash
-npx open-brandkit init --build
+npx open-brandkit init --install --build
 ```
 
-After the build runs, the site can serve:
+After installation, the host site can serve:
 
 ```text
 https://example.com/brandkit
 ```
 
-with logo downloads, color cards, generated social banners, avatar generation, favicon PNG generation, a manifest, and zip downloads.
+with deterministic brand-kit styling, logo downloads, color cards, generated
+social banners, avatar generation, favicon generation, a manifest, and zip
+downloads.
 
-The rendered page intentionally follows a deterministic style contract taken from
-the Sequel Brand Kit reference. New installs should vary by brand inputs only:
-logos, icons, colors, brand name, and generated banner assets. See
-`docs/STYLE_CONTRACT.md`.
+The rendered page intentionally follows the deterministic style contract
+extracted from the Sequel Brand Kit reference. New installs should vary by brand
+inputs only: brand name, logo files, icon files, wordmarks, colors, and generated
+assets. See `docs/STYLE_CONTRACT.md`.
+
+## Current State
+
+Open BrandKit now has a working package shape:
+
+- Framework-neutral core logic in `src/core`.
+- CLI `init` and `build` commands in `src/cli`.
+- Next.js App Router adapter in `src/adapters/next`.
+- Deterministic Brand Kit UI rendered by `BrandKitPage`.
+- Generated `/brandkit` static assets and `brandkit.manifest.json`.
+- Logo lockup, wordmark, and icon grouping.
+- Brand color extraction from Markdown tables, JSON, CSV, or literal config.
+- Avatar generator controls for icon, shape, background, border color, and border thickness.
+- Social banner generator controls for mark, mark asset variant, base color, alignment, and pattern.
+- Favicon generation and install handler.
+- Dev-time banner replacement, banner preset regeneration, favicon install, and downloads through Next route handlers.
+
+The package is not ready for npm publishing yet. It is currently being developed
+from the GitHub repo and local package tarballs.
 
 ## Inputs
 
 The minimum useful inputs are intentionally small:
 
-- a folder of logo files
-- a color source file, such as Markdown, JSON, CSV, or literal config values
+- A folder of approved logo assets.
+- A color source file.
 
-Optional config can add banner presets, mark variants, output paths, custom grouping rules, and display metadata.
+Logo assets can include logo lockups, wordmarks, and icons. The installer
+classifies files by filename tokens such as `logo`, `wordmark`, `icon`,
+`symbol`, and `favicon`.
 
-## Install Wizard
+For social banners, the mark color selector is really an asset variant selector.
+The installer creates one option per detected mark file and uses filename tokens
+or SVG fill colors to choose a reasonable swatch. For example:
+
+```text
+public/logos/acme-logo.svg
+public/logos/acme-logo-blue.svg
+public/logos/acme-logo-white.svg
+public/logos/acme-wordmark-black.svg
+public/logos/acme-icon-green.svg
+```
+
+Optional config can add custom grouping rules, banner presets, mark variants,
+output paths, descriptions, and display metadata.
+
+## Install Into Next
 
 In a Next.js app that already has logos and colors:
 
@@ -40,19 +81,20 @@ npx open-brandkit init --install --build
 
 The wizard asks for:
 
-- brand name
-- logo directory
-- colors file
-- route, defaulting to `/brandkit`
-- Next app directory, usually `app` or `src/app`
+- Brand name.
+- Short brand name.
+- Logo directory.
+- Colors file.
+- Route, defaulting to `/brandkit`.
+- Next app directory, usually `app` or `src/app`.
 
-It then writes:
+It writes:
 
 - `brandkit.config.ts`
 - `app/brandkit/page.tsx` or `src/app/brandkit/page.tsx`
-- route handlers for favicon install, banner upload, banner presets, and downloads
+- route handlers for favicon install, banner upload, banner preset regeneration, and downloads
 - `package.json` script wiring
-- generated `public/brandkit` assets if `--build` is used
+- generated `public/brandkit` assets when `--build` is used
 
 For noninteractive setup:
 
@@ -65,14 +107,25 @@ npx open-brandkit init \
   --short-name Acme \
   --logos public/logos \
   --colors docs/brand-colors.md \
+  --route /brandkit \
+  --app-dir src/app \
   --build
 ```
 
 Existing files are skipped unless `--force` is passed.
 
-## Current Status
+After changing source logos or colors, run:
 
-This repo now has a first real CLI path:
+```bash
+npm run brandkit:build
+```
+
+The build output includes the Open BrandKit version used, which helps confirm
+which package build generated the assets.
+
+## Build Command
+
+For local package development:
 
 ```bash
 npm install
@@ -90,67 +143,75 @@ public/brandkit/banners/*
 public/brandkit/downloads/*.zip
 ```
 
-The generated static page works in any site that serves `public` assets. For a Next.js app on Vercel, `public/brandkit/index.html` is enough to make `/brandkit/` available.
+The static HTML output is useful for previewing and for simple hosts. The full
+Sequel-style interactive experience in a Next app uses the Next adapter and
+route handlers.
 
 ## Next.js Adapter
 
-The package exposes an App Router adapter used by the installer:
+The installer writes the route files automatically. They can also be wired
+manually.
 
-```ts
-import {
-  BrandKitPage,
-  getBrandKitNextPageProps,
-} from 'open-brandkit/next'
+Page route:
+
+```tsx
+import { BrandKitPage, getBrandKitNextPageProps } from 'open-brandkit/next'
 
 import config from '@/brandkit.config'
 
 export default async function BrandKitRoute() {
   const props = await getBrandKitNextPageProps(config)
+  const route = config.route ?? '/brandkit'
 
   return (
     <BrandKitPage
       {...props}
       endpoints={{
-        bannerPresets: '/brandkit/banners/presets',
-        bannerUpload: '/brandkit/banners',
-        favicon: '/brandkit/favicon',
+        bannerPresets: `${route}/banners/presets`,
+        bannerUpload: `${route}/banners`,
+        favicon: `${route}/favicon`,
       }}
     />
   )
 }
 ```
 
-Route handlers are generated by `open-brandkit init`, but can also be wired manually with the same helpers:
+Favicon route:
 
 ```ts
-// app/brandkit/favicon/route.ts
-import { createBrandKitNextHandlers } from 'open-brandkit/next/server'
+import { createBrandKitFaviconHandler } from 'open-brandkit/next/server'
 
 import config from '@/brandkit.config'
 
-const handlers = createBrandKitNextHandlers(config)
-
 export const runtime = 'nodejs'
-export const { POST } = handlers.favicon
+export const { POST } = createBrandKitFaviconHandler(config)
 ```
 
-Keep route handlers on `open-brandkit/next/server`. The page route should import from
-`open-brandkit/next`; server routes should not, because banner and favicon actions use
-Sharp native bindings.
+Banner preset route:
 
-The dev-only handlers currently cover favicon installation, banner replacement uploads, banner preset regeneration, and zip download serving. They return `403` in production for write actions.
+```ts
+import { createBrandKitBannerPresetHandler } from 'open-brandkit/next/server'
 
-## Publishing Shape
+import config from '@/brandkit.config'
 
-Once the package is ready for public use, the simplest public flow is:
+export const runtime = 'nodejs'
+export const { POST } = createBrandKitBannerPresetHandler(config)
+```
 
-1. Host this repo publicly on GitHub under the maintainer account or org.
-2. Publish the CLI package to npm as `open-brandkit` or a scoped package such as `@tim/open-brandkit`.
-3. Link people to the GitHub README.
-4. Users run `npx open-brandkit init --build` or `npx @scope/open-brandkit init --build` inside their existing website repo.
-5. Users adjust `brandkit.config.ts` when needed, run `npm run brandkit:build` after changing source assets, commit the generated site artifacts if that matches their deployment workflow, and deploy normally.
+Download route:
 
-Before npm publish, flip `private` off in `package.json`, choose the final package name, add release docs, and decide whether generated artifacts should be committed in host repos or regenerated in CI.
+```ts
+import { createBrandKitDownloadHandler } from 'open-brandkit/next/server'
+
+export const runtime = 'nodejs'
+export const { GET } = createBrandKitDownloadHandler()
+```
+
+Keep route handlers on `open-brandkit/next/server`. The page route should import
+from `open-brandkit/next`; server routes use Sharp native bindings for favicon
+and banner operations.
+
+Write actions are blocked in production.
 
 ## Repository Layout
 
@@ -158,12 +219,20 @@ Before npm publish, flip `private` off in `package.json`, choose the final packa
 src/core/          Framework-neutral config, parsing, asset discovery, rendering, build logic
 src/cli/           init/build command entry point
 src/adapters/next/ Next.js App Router adapter
-docs/              Product notes and extraction plan
+docs/              Product notes, extraction notes, and style contract
 fixtures/          Brand-neutral color fixture inputs
 public/brandkit-source/
                    Brand-neutral logo fixtures for local example builds
 ```
 
-## What Comes Next
+## Publishing Shape
 
-The static `/brandkit` output and the Next adapter now share the same deterministic Brand Kit styling. The next major step is a real example Next app plus tests around the adapter route handlers.
+Before public npm release:
+
+- Flip `private` off in `package.json`.
+- Decide whether the package should publish as `open-brandkit` or under a scope.
+- Add tests around asset classification, config loading, banner rendering, and Next route handlers.
+- Add a real example Next app.
+- Tighten README install paths for npm users instead of local tarball testers.
+- Decide whether host apps should commit generated `public/brandkit` artifacts or regenerate them in CI.
+
