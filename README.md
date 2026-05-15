@@ -1,109 +1,116 @@
 # Open BrandKit
 
-Open BrandKit is an early-stage installer and build package that turns brand
-source files into a working `/brandkit` page inside an existing website repo.
+Open BrandKit turns the brand files you already have into a polished, shareable
+brand kit page for your website.
 
-Current package version: `0.1.2`.
+Most teams eventually need the same little portal: approved logos, colors,
+favicons, social images, avatars, and download buttons. Those assets usually end
+up scattered across folders, design files, old Slack threads, and "which one is
+current?" conversations.
 
-The intended developer story is:
+Open BrandKit exists so a website repo can become the source of truth. Put the
+approved brand files in the project, run the installer, and your site gets a
+`/brandkit` page that stays tied to the assets you actually ship.
 
-```bash
-npx open-brandkit init --install --build
-```
+## What It Creates
 
-After installation, the host site can serve:
+Open BrandKit can generate a brand kit with:
 
-```text
-https://example.com/brandkit
-```
+- Logo lockups, wordmarks, and icons grouped into clear sections.
+- Download buttons for approved assets.
+- Brand color cards pulled from a source file.
+- Avatar and favicon generation from your icon files.
+- Ready-to-use social banner images.
+- ZIP downloads for asset groups.
+- A generated manifest for the brand kit page.
 
-with deterministic brand-kit styling, logo downloads, color cards, generated
-social banners, avatar generation, favicon generation, a manifest, and zip
-downloads.
+The page has an opinionated default design on purpose. A new install should feel
+complete immediately, with the brand inputs doing the changing: your name, your
+logos, your icons, your wordmarks, and your colors.
 
-The rendered page intentionally follows the deterministic style contract
-extracted from the Sequel Brand Kit reference. New installs should vary by brand
-inputs only: brand name, logo files, icon files, wordmarks, colors, and generated
-assets. See `docs/STYLE_CONTRACT.md`.
+## What It Works With
 
-## Current State
+Open BrandKit currently works best with:
 
-Open BrandKit now has a working package shape:
+- A Next.js App Router site.
+- Logos and icons stored in your repo, usually under `public/logos`.
+- SVG or PNG brand assets.
+- A color source file in Markdown, JSON, CSV, or TypeScript config.
+- Vercel or any host that can serve a normal Next.js app.
 
-- Framework-neutral core logic in `src/core`.
-- CLI `init` and `build` commands in `src/cli`.
-- Next.js App Router adapter in `src/adapters/next`.
-- Deterministic Brand Kit UI rendered by `BrandKitPage`.
-- Generated `/brandkit` static assets and `brandkit.manifest.json`.
-- Logo lockup, wordmark, and icon grouping.
-- Brand color extraction from Markdown tables, JSON, CSV, or literal config.
-- Avatar generator controls for icon, shape, background, border color, and border thickness.
-- Social banner generator controls for mark, mark asset variant, base color, alignment, and pattern.
-- Favicon generation and install handler.
-- Dev-time banner replacement, banner preset regeneration, favicon install, and downloads through Next route handlers.
+It can also generate static files under `public/brandkit`, but the full
+interactive experience uses the Next.js adapter.
 
-The package is not ready for npm publishing yet. It is currently being developed
-from the GitHub repo and local package tarballs.
+## What It Does Not Do
 
-## Inputs
+Open BrandKit does not design your brand for you. It expects approved source
+files to already exist.
 
-The minimum useful inputs are intentionally small:
+It also does not yet support every framework. The core build logic is written to
+be reusable, but the installer and interactive page are focused on Next.js first.
 
-- A folder of approved logo assets.
-- A color source file.
+Production write actions are blocked. The local development tools can generate
+favicons, replace social images, and regenerate banner presets, but your live
+site should behave like a read-only brand kit.
 
-Logo assets can include logo lockups, wordmarks, and icons. The installer
-classifies files by filename tokens such as `logo`, `wordmark`, `icon`,
-`symbol`, and `favicon`.
+## Prepare Your Assets
 
-For social banners, the mark color selector is really an asset variant selector.
-The installer creates one option per detected mark file and uses filename tokens
-or SVG fill colors to choose a reasonable swatch. For example:
+Start with a folder of approved brand files. Clear filenames help Open BrandKit
+group things correctly.
+
+Example:
 
 ```text
 public/logos/acme-logo.svg
-public/logos/acme-logo-blue.svg
 public/logos/acme-logo-white.svg
 public/logos/acme-wordmark-black.svg
+public/logos/acme-wordmark-blue.svg
 public/logos/acme-icon-green.svg
+public/logos/acme-icon-white.svg
 ```
 
-Optional config can add custom grouping rules, banner presets, mark variants,
-output paths, descriptions, and display metadata.
+Useful filename words:
 
-## Install Into Next
+- `logo` for full logo lockups.
+- `wordmark` for text-only marks.
+- `icon`, `symbol`, or `favicon` for compact marks.
+- color words like `blue`, `black`, `white`, `green`, or your own color names.
 
-In a Next.js app that already has logos and colors:
+Then add a color source file.
+
+Example Markdown:
+
+```md
+| Name | Hex |
+| --- | --- |
+| Acme Blue | #2457ff |
+| Acme Green | #32d583 |
+| Acme Black | #101828 |
+```
+
+## Install
+
+From the root of an existing Next.js app:
 
 ```bash
 npx open-brandkit init --install --build
 ```
 
-The wizard asks for:
+The installer asks for your brand name, logo folder, color file, route, and app
+directory. By default, the brand kit lives at:
 
-- Brand name.
-- Short brand name.
-- Logo directory.
-- Colors file.
-- Route, defaulting to `/brandkit`.
-- Next app directory, usually `app` or `src/app`.
+```text
+/brandkit
+```
 
-It writes:
-
-- `brandkit.config.ts`
-- `app/brandkit/page.tsx` or `src/app/brandkit/page.tsx`
-- route handlers for favicon install, banner upload, banner preset regeneration, and downloads
-- `package.json` script wiring
-- generated `public/brandkit` assets when `--build` is used
-
-For noninteractive setup:
+For a noninteractive install:
 
 ```bash
 npx open-brandkit init \
   --yes \
   --install \
   --framework next \
-  --brand "Acme Studio" \
+  --brand "Acme" \
   --short-name Acme \
   --logos public/logos \
   --colors docs/brand-colors.md \
@@ -112,127 +119,104 @@ npx open-brandkit init \
   --build
 ```
 
-Existing files are skipped unless `--force` is passed.
+Use `app` instead of `src/app` if your project does not use a `src` directory.
 
-After changing source logos or colors, run:
+## What Gets Added
+
+Open BrandKit writes a small set of files into your app:
+
+```text
+brandkit.config.ts
+src/app/brandkit/page.tsx
+src/app/brandkit/layout.tsx
+src/app/brandkit/favicon/route.ts
+src/app/brandkit/banners/route.ts
+src/app/brandkit/banners/presets/route.ts
+src/app/brandkit/download/[group]/route.ts
+public/brandkit/*
+```
+
+It also adds a script:
+
+```json
+{
+  "scripts": {
+    "brandkit:build": "open-brandkit build"
+  }
+}
+```
+
+## Use It
+
+Start your app:
+
+```bash
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:3000/brandkit
+```
+
+When you change logos or colors, rebuild the brand kit:
 
 ```bash
 npm run brandkit:build
 ```
 
-The build output includes the Open BrandKit version used, which helps confirm
-which package build generated the assets.
+The build output includes the Open BrandKit version that generated the files, so
+it is easier to troubleshoot installs across projects.
 
-## Build Command
+## Customize
 
-For local package development:
+Most customization lives in `brandkit.config.ts`.
 
-```bash
-npm install
-npm run build
-node dist/cli/index.js build --config brandkit.config.example.ts
-```
+Use it to change:
 
-That writes:
+- Brand name and description.
+- Logo source folder.
+- Color source file.
+- Logo grouping rules.
+- Banner presets.
+- Banner mark variants.
+- Output paths.
 
-```text
-public/brandkit/index.html
-public/brandkit/brandkit.manifest.json
-public/brandkit/logos/*
-public/brandkit/banners/*
-public/brandkit/downloads/*.zip
-```
+The defaults are meant to be useful without heavy configuration. If your source
+files are named clearly, Open BrandKit should infer a good first version.
 
-The static HTML output is useful for previewing and for simple hosts. The full
-Sequel-style interactive experience in a Next app uses the Next adapter and
-route handlers.
+## Asset Variant Colors
 
-## Next.js Adapter
+In the social banner generator, the "Color" control selects a mark file. It does
+not recolor the artwork.
 
-The installer writes the route files automatically. They can also be wired
-manually.
-
-Page route:
-
-```tsx
-import { BrandKitPage, getBrandKitNextPageProps } from 'open-brandkit/next'
-
-import config from '@/brandkit.config'
-
-export default async function BrandKitRoute() {
-  const props = await getBrandKitNextPageProps(config)
-  const route = config.route ?? '/brandkit'
-
-  return (
-    <BrandKitPage
-      {...props}
-      endpoints={{
-        bannerPresets: `${route}/banners/presets`,
-        bannerUpload: `${route}/banners`,
-        favicon: `${route}/favicon`,
-      }}
-    />
-  )
-}
-```
-
-Favicon route:
-
-```ts
-import { createBrandKitFaviconHandler } from 'open-brandkit/next/server'
-
-import config from '@/brandkit.config'
-
-export const runtime = 'nodejs'
-export const { POST } = createBrandKitFaviconHandler(config)
-```
-
-Banner preset route:
-
-```ts
-import { createBrandKitBannerPresetHandler } from 'open-brandkit/next/server'
-
-import config from '@/brandkit.config'
-
-export const runtime = 'nodejs'
-export const { POST } = createBrandKitBannerPresetHandler(config)
-```
-
-Download route:
-
-```ts
-import { createBrandKitDownloadHandler } from 'open-brandkit/next/server'
-
-export const runtime = 'nodejs'
-export const { GET } = createBrandKitDownloadHandler()
-```
-
-Keep route handlers on `open-brandkit/next/server`. The page route should import
-from `open-brandkit/next`; server routes use Sharp native bindings for favicon
-and banner operations.
-
-Write actions are blocked in production.
-
-## Repository Layout
+That means a logo like this:
 
 ```text
-src/core/          Framework-neutral config, parsing, asset discovery, rendering, build logic
-src/cli/           init/build command entry point
-src/adapters/next/ Next.js App Router adapter
-docs/              Product notes, extraction notes, and style contract
-fixtures/          Brand-neutral color fixture inputs
-public/brandkit-source/
-                   Brand-neutral logo fixtures for local example builds
+acme-logo.svg
+acme-logo-blue.svg
+acme-logo-white.svg
 ```
 
-## Publishing Shape
+becomes three selectable logo variants. Open BrandKit uses filename hints and SVG
+fill colors to choose reasonable color dots for those options.
 
-Before public npm release:
+## Deploy
 
-- Flip `private` off in `package.json`.
-- Decide whether the package should publish as `open-brandkit` or under a scope.
-- Add tests around asset classification, config loading, banner rendering, and Next route handlers.
-- Add a real example Next app.
-- Tighten README install paths for npm users instead of local tarball testers.
-- Decide whether host apps should commit generated `public/brandkit` artifacts or regenerate them in CI.
+Commit the generated files and deploy your site as usual.
+
+On Vercel, `/brandkit` works like any other Next.js route once the files are in
+the repo.
+
+## Status
+
+Open BrandKit is early. The main path today is:
+
+```text
+existing Next.js app + local brand assets -> generated /brandkit page
+```
+
+The next priorities are better examples, broader test coverage, and smoother
+published-package installation.
 
