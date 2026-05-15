@@ -328,12 +328,14 @@ async function createDownloadArchives({
   assetBasePath,
   assetGroups,
   bannerGroups,
+  archivePrefix,
   outputRoot,
   projectRoot,
   publicDir,
 }: {
   assetBasePath: string
   assetGroups: BrandKitAssetGroup[]
+  archivePrefix: string
   bannerGroups: BrandKitBannerGroup[]
   outputRoot: string
   projectRoot: string
@@ -342,6 +344,17 @@ async function createDownloadArchives({
   const downloadsDir = path.join(outputRoot, 'downloads')
   const writtenFiles: string[] = []
   const allEntries: { download: BrandKitAssetDownload; zipPath: string }[] = []
+  const assetGroupArchives: Record<string, string> = {}
+  const archiveFileName = (name: string) =>
+    archivePrefix ? `${archivePrefix}-${name}.zip` : `${name}.zip`
+  const bannerEntries = bannerGroups.flatMap((group) =>
+    group.items.flatMap((asset) =>
+      asset.downloads.map((download) => ({
+        download,
+        zipPath: path.posix.join(group.key, download.fileName),
+      })),
+    ),
+  )
 
   for (const group of assetGroups) {
     const groupEntries = group.items.flatMap((asset) =>
@@ -353,10 +366,16 @@ async function createDownloadArchives({
 
     if (!groupEntries.length) continue
 
-    const zipPath = path.join(downloadsDir, `${group.key}.zip`)
+    const fileName = archiveFileName(group.key)
+    const zipPath = path.join(downloadsDir, fileName)
 
     await createZip({ entries: groupEntries, filePath: zipPath, projectRoot, publicDir })
     writtenFiles.push(zipPath)
+    assetGroupArchives[group.key] = joinPublicUrl(
+      assetBasePath,
+      'downloads',
+      fileName,
+    )
     allEntries.push(
       ...groupEntries.map((entry) => ({
         ...entry,
@@ -376,12 +395,29 @@ async function createDownloadArchives({
     )
   }
 
+  const bannerAssetsFileName = archiveFileName('banners')
+  const allAssetsFileName = archiveFileName('all-assets')
+  const bannerAssetsUrl = bannerEntries.length
+    ? joinPublicUrl(assetBasePath, 'downloads', bannerAssetsFileName)
+    : undefined
   const allAssetsUrl = allEntries.length
-    ? joinPublicUrl(assetBasePath, 'downloads', 'all-assets.zip')
+    ? joinPublicUrl(assetBasePath, 'downloads', allAssetsFileName)
     : undefined
 
+  if (bannerEntries.length) {
+    const bannerAssetsPath = path.join(downloadsDir, bannerAssetsFileName)
+
+    await createZip({
+      entries: bannerEntries,
+      filePath: bannerAssetsPath,
+      projectRoot,
+      publicDir,
+    })
+    writtenFiles.push(bannerAssetsPath)
+  }
+
   if (allEntries.length) {
-    const allAssetsPath = path.join(downloadsDir, 'all-assets.zip')
+    const allAssetsPath = path.join(downloadsDir, allAssetsFileName)
 
     await createZip({
       entries: allEntries,
@@ -392,7 +428,7 @@ async function createDownloadArchives({
     writtenFiles.push(allAssetsPath)
   }
 
-  return { allAssetsUrl, writtenFiles }
+  return { allAssetsUrl, assetGroupArchives, bannerAssetsUrl, writtenFiles }
 }
 
 export async function buildBrandKit(
@@ -427,6 +463,7 @@ export async function buildBrandKit(
   const downloadResult = await createDownloadArchives({
     assetBasePath,
     assetGroups: logoResult.groups,
+    archivePrefix: slugify(config.brand.shortName ?? config.brand.name),
     bannerGroups: bannerResult.groups,
     outputRoot,
     projectRoot,
@@ -444,6 +481,8 @@ export async function buildBrandKit(
     bannerGroups: bannerResult.groups,
     downloads: {
       allAssets: downloadResult.allAssetsUrl,
+      assetGroups: downloadResult.assetGroupArchives,
+      bannerAssets: downloadResult.bannerAssetsUrl,
     },
   } satisfies BrandKitManifest
   const manifestPath = path.join(

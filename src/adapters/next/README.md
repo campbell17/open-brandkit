@@ -84,5 +84,5 @@ export const { GET } = createBrandKitDownloadHandler()
 
 - `BrandKitPage` renders logos, colors, avatar generation, favicon download/install controls, banners, banner replacement, and banner preset controls.
 - `getBrandKitNextPageProps` loads `public/brandkit/brandkit.manifest.json` and derives serializable banner controls from `brandkit.config.ts`.
-- Write actions are blocked in production.
+- Banner preset actions can run in production when the routes are wired. Custom banner uploads, resets, and favicon installation stay local-only because they write files that cannot be saved back to the repo from a deployed site.
 - Core parsing and generation stay in `src/core`; this adapter consumes the generated manifest and calls core build helpers when regenerating banner presets.

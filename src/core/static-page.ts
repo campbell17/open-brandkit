@@ -172,6 +172,14 @@ h1 {
 .section-heading {
   max-width: 672px;
 }
+.section-heading-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.section-heading-actions {
+  flex: 0 0 auto;
+}
 .section-heading h2 {
   margin: 12px 0 0;
   color: var(--ink);
@@ -711,6 +719,11 @@ h1 {
     align-items: flex-end;
     justify-content: space-between;
   }
+  .section-heading-row {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
   .color-row-2,
   .color-row-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -806,7 +819,7 @@ function renderDownloadButtons(downloads: BrandKitAsset['downloads']) {
     .join('')
 }
 
-function renderAssetGroup(group: BrandKitAssetGroup) {
+function renderAssetGroup(group: BrandKitAssetGroup, downloadUrl: string) {
   return `
     <section class="group">
       <div class="group-header">
@@ -816,7 +829,7 @@ function renderAssetGroup(group: BrandKitAssetGroup) {
         </div>
         <div class="group-actions">
           <span class="asset-count">${group.items.length} ${group.items.length === 1 ? 'asset' : 'assets'} available</span>
-          <a class="button" href="./downloads/${escapeHtml(group.key)}.zip" download>
+          <a class="button" href="${escapeHtml(downloadUrl)}" download>
             ${lucideIcon('download')}
             <span>Download all</span>
           </a>
@@ -1234,13 +1247,28 @@ function renderColors(manifest: BrandKitManifest) {
 function renderBanners(manifest: BrandKitManifest) {
   if (!manifest.bannerGroups.length) return ''
 
+  const bannerAssetCount = manifest.bannerGroups.reduce(
+    (total, group) => total + group.items.length,
+    0,
+  )
+
   return `
     <section id="banners" class="section-banners">
       <div class="wrap section-inner">
-        <div class="section-heading">
-          <p class="eyebrow">Banners</p>
-          <h2>Social profile assets</h2>
-          <p>Ready-to-use PNG cover images sized for each platform.</p>
+        <div class="section-heading-row">
+          <div class="section-heading">
+            <p class="eyebrow">Banners</p>
+            <h2>Social profile assets</h2>
+            <p>Ready-to-use PNG cover images sized for each platform.</p>
+          </div>
+          <div class="group-actions section-heading-actions">
+            <span class="asset-count">${bannerAssetCount} ${bannerAssetCount === 1 ? 'asset' : 'assets'} available</span>
+            ${
+              manifest.downloads.bannerAssets
+                ? `<a class="button" href="${escapeHtml(manifest.downloads.bannerAssets)}" download>${lucideIcon('download')}<span>Download all</span></a>`
+                : ''
+            }
+          </div>
         </div>
         <div class="banner-stack">
           ${manifest.bannerGroups
@@ -1541,6 +1569,11 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
     (total, group) => total + group.items.length,
     0,
   )
+  const bannerAssetCount = manifest.bannerGroups.reduce(
+    (total, group) => total + group.items.length,
+    0,
+  )
+  const totalAssetCount = assetCount + bannerAssetCount
   const brandLabel = manifest.brand.shortName ?? manifest.brand.name
 
   return `<!doctype html>
@@ -1563,7 +1596,7 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
             <a class="nav-link" href="#logos">${lucideIcon('arrow-down', 'nav-arrow')}<span>Logos</span></a>
             <a class="nav-link" href="#colors">${lucideIcon('arrow-down', 'nav-arrow')}<span>Colors</span></a>
             ${manifest.bannerGroups.length ? `<a class="nav-link" href="#banners">${lucideIcon('arrow-down', 'nav-arrow')}<span>Banners</span></a>` : ''}
-            <span class="asset-count">${assetCount} ${assetCount === 1 ? 'asset' : 'assets'} available</span>
+            <span class="asset-count">${totalAssetCount} ${totalAssetCount === 1 ? 'asset' : 'assets'} available</span>
             ${manifest.downloads.allAssets ? `<a class="button" href="${escapeHtml(manifest.downloads.allAssets)}" download>${lucideIcon('download')}<span>Download all</span></a>` : ''}
           </nav>
         </div>
@@ -1582,7 +1615,15 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
             <h2>Approved marks</h2>
           </div>
           <div class="stack">
-            ${manifest.assetGroups.map(renderAssetGroup).join('')}
+            ${manifest.assetGroups
+              .map((group) =>
+                renderAssetGroup(
+                  group,
+                  manifest.downloads.assetGroups?.[group.key] ??
+                    `./downloads/${group.key}.zip`,
+                ),
+              )
+              .join('')}
             ${renderAvatarGenerator(manifest)}
           </div>
         </div>

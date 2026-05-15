@@ -49,9 +49,10 @@ files to already exist.
 It also does not yet support every framework. The core build logic is written to
 be reusable, but the installer and interactive page are focused on Next.js first.
 
-Production write actions are blocked. The local development tools can generate
-favicons, replace social images, and regenerate banner presets, but your live
-site should behave like a read-only brand kit.
+The social banner preset controls can run on production when you wire the Next
+routes. Custom banner uploads, resets, and favicon installation stay local-only
+because they write files that cannot be saved back to your repo from a deployed
+site.
 
 ## Prepare Your Assets
 
@@ -216,5 +217,3 @@ Open BrandKit is early. The main path today is:
 ```text
 existing Next.js app + local brand assets -> generated /brandkit page
 ```
-
-

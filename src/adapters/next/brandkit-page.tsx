@@ -241,6 +241,14 @@ const styles = `
 .obk-section-heading {
   max-width: 672px;
 }
+.obk-section-heading-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.obk-section-heading-actions {
+  flex: 0 0 auto;
+}
 .obk-section-heading h2 {
   margin: 12px 0 0;
   color: #020617;
@@ -945,6 +953,11 @@ const styles = `
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .obk-group-header {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .obk-section-heading-row {
     flex-direction: row;
     align-items: flex-end;
     justify-content: space-between;
@@ -2626,7 +2639,7 @@ function Lightbox({
 
 export function BrandKitPage({
   bannerControls,
-  canUseDevActions = process.env.NODE_ENV !== 'production',
+  canUseDevActions = true,
   endpoints,
   manifest,
 }: BrandKitPageProps) {
@@ -2650,6 +2663,15 @@ export function BrandKitPage({
       manifest.assetGroups.reduce((total, group) => total + group.items.length, 0),
     [manifest.assetGroups],
   )
+  const bannerAssetCount = useMemo(
+    () =>
+      manifest.bannerGroups.reduce(
+        (total, group) => total + group.items.length,
+        0,
+      ),
+    [manifest.bannerGroups],
+  )
+  const totalAssetCount = assetCount + bannerAssetCount
   const heroAsset = useMemo(
     () => findHeroAsset(manifest.assetGroups),
     [manifest.assetGroups],
@@ -2662,6 +2684,12 @@ export function BrandKitPage({
   const brandLabel = manifest.brand.shortName ?? manifest.brand.name
   const homeUrl = manifest.brand.homeUrl ?? '/'
   const allDownloadHref = `${manifest.route}/download/all`
+  const bannerDownloadHref = `${manifest.route}/download/banners`
+  const canInstallFavicons =
+    canUseDevActions && process.env.NODE_ENV !== 'production'
+  const canUseBannerActions = canUseDevActions
+  const canUseCustomBannerUploads =
+    canUseDevActions && process.env.NODE_ENV !== 'production'
 
   function updateCustomBannerState(assetId: string, isCustom: boolean) {
     setCustomBannerIds((current) => {
@@ -2730,7 +2758,7 @@ export function BrandKitPage({
                 </a>
               ) : null}
               <span className="obk-asset-count">
-                {formatAssetCount(assetCount)}
+                {formatAssetCount(totalAssetCount)}
               </span>
               {manifest.downloads.allAssets ? (
                 <DownloadAllButton href={allDownloadHref} />
@@ -2765,7 +2793,7 @@ export function BrandKitPage({
               ))}
               <AvatarGenerator
                 assets={avatarAssets}
-                canUseDevActions={canUseDevActions}
+                canUseDevActions={canInstallFavicons}
                 colors={manifest.brandColors}
                 endpoints={endpoints}
               />
@@ -2813,12 +2841,22 @@ export function BrandKitPage({
         {manifest.bannerGroups.length ? (
           <section className="obk-section-banners" id="banners">
             <div className="obk-wrap obk-section-inner">
-              <div className="obk-section-heading">
-                <p className="obk-eyebrow">Banners</p>
-                <h2>Social profile assets</h2>
-                <p>Ready-to-use PNG cover images sized for each platform.</p>
+              <div className="obk-section-heading-row">
+                <div className="obk-section-heading">
+                  <p className="obk-eyebrow">Banners</p>
+                  <h2>Social profile assets</h2>
+                  <p>Ready-to-use PNG cover images sized for each platform.</p>
+                </div>
+                <div className="obk-group-actions obk-section-heading-actions">
+                  <span className="obk-asset-count">
+                    {formatAssetCount(bannerAssetCount)}
+                  </span>
+                  {manifest.downloads.bannerAssets ? (
+                    <DownloadAllButton href={bannerDownloadHref} />
+                  ) : null}
+                </div>
               </div>
-              {canUseDevActions && endpoints?.bannerPresets && bannerControls ? (
+              {canUseBannerActions && endpoints?.bannerPresets && bannerControls ? (
                 <BannerPresetControls
                   controls={bannerControls}
                   endpoint={endpoints.bannerPresets}
@@ -2828,7 +2866,7 @@ export function BrandKitPage({
               <div className="obk-banner-stack">
                 {manifest.bannerGroups.map((group) => (
                   <BannerGroup
-                    canUseDevActions={canUseDevActions}
+                    canUseDevActions={canUseCustomBannerUploads}
                     customBannerIds={customBannerIds}
                     endpoints={endpoints}
                     group={group}

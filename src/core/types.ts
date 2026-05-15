@@ -173,5 +173,7 @@ export type BrandKitManifest = {
   bannerGroups: BrandKitBannerGroup[]
   downloads: {
     allAssets?: string
+    assetGroups?: Record<string, string>
+    bannerAssets?: string
   }
 }

@@ -83,6 +83,17 @@ function getPublicFilePath(
   return filePath
 }
 
+function getDownloadFileName(publicUrl: string, fallback: string) {
+  try {
+    const url = new URL(publicUrl, 'https://open-brandkit.local')
+    const fileName = path.basename(url.pathname)
+
+    return fileName || fallback
+  } catch {
+    return fallback
+  }
+}
+
 function findBannerAsset(manifest: BrandKitManifest, assetId: string) {
   for (const group of manifest.bannerGroups) {
     const asset = group.items.find((item) => item.id === assetId)
@@ -294,17 +305,36 @@ export function createBrandKitDownloadHandler(
       context: { params: Promise<{ group: string }> | { group: string } },
     ) {
       const params = await context.params
-      const group = params.group === 'all' ? 'all-assets' : params.group
+      const requestedGroup = params.group
+      const fallbackGroup = requestedGroup === 'all' ? 'all-assets' : requestedGroup
       const cwd = getCwd(options)
       const publicDir = getPublicDir(options)
       const assetBasePath = options.assetBasePath ?? '/brandkit'
-      const filePath = path.join(
+      let filePath = path.join(
         cwd,
         publicDir,
         stripSlashes(assetBasePath),
         'downloads',
-        `${group}.zip`,
+        `${fallbackGroup}.zip`,
       )
+      let fileName = `${fallbackGroup}.zip`
+
+      try {
+        const manifest = await loadBrandKitManifest(options)
+        const archiveUrl =
+          requestedGroup === 'all'
+            ? manifest.downloads.allAssets
+            : requestedGroup === 'banners'
+              ? manifest.downloads.bannerAssets
+              : manifest.downloads.assetGroups?.[requestedGroup]
+
+        if (archiveUrl) {
+          filePath = getPublicFilePath(archiveUrl, options)
+          fileName = getDownloadFileName(archiveUrl, fileName)
+        }
+      } catch {
+        // Fall back to the original unprefixed archive paths for older manifests.
+      }
 
       try {
         const content = await readFile(filePath)
@@ -312,7 +342,7 @@ export function createBrandKitDownloadHandler(
         return new Response(content, {
           headers: {
             'Cache-Control': 'no-store',
-            'Content-Disposition': `attachment; filename="${group}.zip"`,
+            'Content-Disposition': `attachment; filename="${fileName}"`,
             'Content-Type': 'application/zip',
           },
         })
@@ -433,7 +463,7 @@ export function createBrandKitBannerUploadHandler(
       try {
         if (isProduction()) {
           return productionBlocked(
-            'Banner replacement is only available in local development.',
+            'Custom banner uploads are only available in local development.',
           )
         }
 
@@ -555,12 +585,6 @@ export function createBrandKitBannerPresetHandler(
   return {
     async POST(request: Request) {
       try {
-        if (isProduction()) {
-          return productionBlocked(
-            'Banner presets are only available in local development.',
-          )
-        }
-
         const body = (await request.json()) as BrandKitBannerPresetRequest
         const currentManifest = await loadBrandKitManifest(options)
         const customBannerIds = getCustomBannerIds(currentManifest)
