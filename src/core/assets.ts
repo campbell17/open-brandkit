@@ -153,23 +153,63 @@ export function getFileStem(fileName: string) {
   return path.basename(fileName).replace(/\.[^.]+$/, '')
 }
 
-export function humanizeAssetTitle(fileName: string, brandName?: string) {
-  const brandTokens = new Set(
+type BrandCasingOptions = {
+  brandName?: string
+  shortName?: string
+}
+
+function getBrandNameTokens(brandName?: string) {
+  return new Set(
     (brandName ?? '')
       .toLowerCase()
       .split(/[^a-z0-9]+/)
       .filter(Boolean),
+  )
+}
+
+function applyGeneratedTokenCasing(
+  token: string,
+  { shortName }: BrandCasingOptions,
+) {
+  if (shortName && token.toLowerCase() === shortName.toLowerCase()) {
+    return shortName
+  }
+
+  if (/^workd?mark$/i.test(token)) return 'Wordmark'
+  if (token.toUpperCase() === token) return token
+
+  return token.charAt(0).toUpperCase() + token.slice(1)
+}
+
+export function applyBrandCasing(
+  value: string,
+  { shortName }: BrandCasingOptions,
+) {
+  if (!shortName) return value
+
+  return value.replace(/[a-z0-9]+/gi, (token) =>
+    token.toLowerCase() === shortName.toLowerCase() ? shortName : token,
+  )
+}
+
+export function humanizeAssetTitle(
+  fileName: string,
+  brandNameOrOptions?: string | BrandCasingOptions,
+  shortName?: string,
+) {
+  const casing =
+    typeof brandNameOrOptions === 'object'
+      ? brandNameOrOptions
+      : { brandName: brandNameOrOptions, shortName }
+  const brandTokens = new Set(
+    getBrandNameTokens(casing.brandName),
   )
 
   return getFileStem(fileName)
     .split(/[-_\s]+/)
     .filter(Boolean)
     .filter((token) => !brandTokens.has(token.toLowerCase()))
-    .map((token) =>
-      /^workd?mark$/i.test(token)
-        ? 'Wordmark'
-        : token.charAt(0).toUpperCase() + token.slice(1),
-    )
+    .map((token) => applyGeneratedTokenCasing(token, casing))
     .join(' ')
 }
 

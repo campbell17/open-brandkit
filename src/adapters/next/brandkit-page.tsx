@@ -9,6 +9,7 @@ import {
   Download,
   RotateCcw,
   Upload,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -27,6 +28,7 @@ import type {
   BrandKitBannerAsset,
   BrandKitBannerGroup,
   BrandKitColor,
+  BrandKitColorSection,
   BrandKitManifest,
   BrandKitPrintColor,
   BrandKitPrintColorGroup,
@@ -62,6 +64,7 @@ type ColorOption = {
   color: string | null
   key: string
   label: string
+  previewStyle?: CSSProperties
 }
 
 type AvatarIconOption = {
@@ -187,13 +190,25 @@ function findFooterAsset(groups: BrandKitAssetGroup[]) {
   return logoGroup?.items[0] ?? groups[0]?.items[0] ?? null
 }
 
-function normalizeHexColor(value: string) {
-  const trimmed = value.trim()
+function normalizeOptionalHexColor(value?: string | null) {
+  if (!value) return null
 
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed
+  const trimmed = value.trim().replace(/^#/, '')
+
+  if (/^[0-9a-f]{3}$/i.test(trimmed)) {
+    return `#${trimmed
+      .split('')
+      .map((character) => character + character)
+      .join('')}`
+  }
+
   if (/^[0-9a-f]{6}$/i.test(trimmed)) return `#${trimmed}`
 
-  return '#ffffff'
+  return null
+}
+
+function normalizeHexColor(value: string) {
+  return normalizeOptionalHexColor(value) ?? '#ffffff'
 }
 
 function tokenize(value: string) {
@@ -213,27 +228,184 @@ function findPrimaryColor(colors: BrandKitColor[]) {
   )
 }
 
-function makeFixedBackgroundOptions(customHex: string): ColorOption[] {
+function getBrandGradientStops(colors: BrandKitColor[]) {
+  return [
+    ...new Set(
+      colors
+        .map((color) => normalizeOptionalHexColor(color.hex))
+        .filter((hex): hex is string => Boolean(hex)),
+    ),
+  ]
+}
+
+function getCustomColorPreviewStyle(colors: BrandKitColor[]) {
+  const stops = getBrandGradientStops(colors)
+
+  if (stops.length === 0) {
+    return { backgroundColor: '#ffffff' } satisfies CSSProperties
+  }
+
+  if (stops.length === 1) {
+    return { backgroundColor: stops[0] } satisfies CSSProperties
+  }
+
+  return {
+    backgroundColor: stops[0],
+    backgroundImage: `linear-gradient(135deg, ${stops
+      .map((hex, index) => {
+        const stop = (index / (stops.length - 1)) * 100
+        const formattedStop = Number.isInteger(stop)
+          ? String(stop)
+          : stop.toFixed(2).replace(/\.?0+$/, '')
+
+        return `${hex} ${formattedStop}%`
+      })
+      .join(', ')})`,
+  } satisfies CSSProperties
+}
+
+function findCustomPreviewColors(
+  colors: BrandKitColor[],
+  colorSections: BrandKitColorSection[],
+) {
+  const colorByName = new Map(
+    colors.map((color) => [color.name.toLowerCase(), color]),
+  )
+  const colorByHex = new Map(
+    colors.flatMap((color) => {
+      const hex = normalizeOptionalHexColor(color.hex)
+
+      return hex ? [[hex.toLowerCase(), color] as const] : []
+    }),
+  )
+  const selected: BrandKitColor[] = []
+  const seen = new Set<string>()
+
+  for (const section of colorSections) {
+    if (!/primary|secondary/i.test(section.label)) continue
+
+    for (const colorReference of section.rows.flat()) {
+      const color =
+        colorByName.get(colorReference.toLowerCase()) ??
+        colorByHex.get(
+          normalizeOptionalHexColor(colorReference)?.toLowerCase() ?? '',
+        )
+
+      if (!color || seen.has(color.name.toLowerCase())) continue
+
+      seen.add(color.name.toLowerCase())
+      selected.push(color)
+    }
+  }
+
+  return selected.length ? selected : colors
+}
+
+function getColorPickerFallback(colors: BrandKitColor[]) {
+  return getBrandGradientStops(colors)[0] ?? '#05070b'
+}
+
+function makeFixedBackgroundOptions(
+  customPreviewColors: BrandKitColor[],
+  customHex: string,
+): ColorOption[] {
+  const customColor = normalizeOptionalHexColor(customHex)
+
   return [
     { color: null, key: 'transparent', label: 'Transparent' },
     { color: '#05070b', key: 'black', label: 'Black' },
     { color: '#ffffff', key: 'white', label: 'White' },
-    { color: normalizeHexColor(customHex), key: 'custom', label: 'Custom' },
+    {
+      color: customColor,
+      key: 'custom',
+      label: 'Custom',
+      previewStyle: customColor
+        ? undefined
+        : getCustomColorPreviewStyle(customPreviewColors),
+    },
   ]
 }
 
 function makeFixedBorderOptions(
   colors: BrandKitColor[],
+  customPreviewColors: BrandKitColor[],
   customHex: string,
 ): ColorOption[] {
   const primary = findPrimaryColor(colors)
+  const customColor = normalizeOptionalHexColor(customHex)
 
   return [
     { color: primary.hex, key: 'primary', label: 'Primary' },
     { color: '#05070b', key: 'black', label: 'Black' },
     { color: '#ffffff', key: 'white', label: 'White' },
-    { color: normalizeHexColor(customHex), key: 'custom', label: 'Custom' },
+    {
+      color: customColor,
+      key: 'custom',
+      label: 'Custom',
+      previewStyle: customColor
+        ? undefined
+        : getCustomColorPreviewStyle(customPreviewColors),
+    },
   ]
+}
+
+const avatarVariantStopTokens = new Set([
+  'brandmark',
+  'favicon',
+  'favicons',
+  'icon',
+  'icons',
+  'logo',
+  'logos',
+  'mark',
+  'marks',
+  'symbol',
+  'symbols',
+])
+
+function getAvatarAssetTokens(asset: BrandKitAsset) {
+  const fileName =
+    asset.downloads[0]?.fileName ??
+    asset.previewUrl.split('/').pop() ??
+    asset.id.split(':').pop() ??
+    asset.title
+
+  return tokenize(fileName.replace(/\.[^.]+$/, ''))
+}
+
+function getCommonAvatarAssetTokens(assets: BrandKitAsset[]) {
+  const tokenLists = assets.map((asset) => new Set(getAvatarAssetTokens(asset)))
+
+  if (!tokenLists.length) return new Set<string>()
+
+  return new Set(
+    Array.from(tokenLists[0] ?? []).filter((token) =>
+      tokenLists.every((tokens) => tokens.has(token)),
+    ),
+  )
+}
+
+function titleFromAvatarVariantTokens(tokens: string[]) {
+  return tokens
+    .map((token) =>
+      token.toUpperCase() === token
+        ? token
+        : token.charAt(0).toUpperCase() + token.slice(1),
+    )
+    .join(' ')
+}
+
+function getAvatarIconLabel(
+  asset: BrandKitAsset,
+  commonTokens: ReadonlySet<string>,
+) {
+  const variantTokens = getAvatarAssetTokens(asset).filter(
+    (token) => !commonTokens.has(token) && !avatarVariantStopTokens.has(token),
+  )
+
+  return variantTokens.length
+    ? titleFromAvatarVariantTokens(variantTokens)
+    : 'Primary'
 }
 
 function inferAvatarIconOptions(
@@ -241,12 +413,24 @@ function inferAvatarIconOptions(
   colors: BrandKitColor[],
 ): AvatarIconOption[] {
   const primary = findPrimaryColor(colors)
+  const brandColorTokenCounts = colors
+    .map((color) => new Set(tokenize(color.name)))
+    .reduce((counts, tokens) => {
+      for (const token of tokens) {
+        counts.set(token, (counts.get(token) ?? 0) + 1)
+      }
+
+      return counts
+    }, new Map<string, number>())
   const colorCandidates = [
     ...colors.map((color, index) => ({
       color: color.hex,
       key: `brand-${index}-${color.hex.toLowerCase()}`,
       label: color.name,
-      tokens: tokenize(color.name),
+      tokens: tokenize(color.name).filter(
+        (token) =>
+          token.length > 2 && (brandColorTokenCounts.get(token) ?? 0) === 1,
+      ),
     })),
     {
       color: '#ffffff',
@@ -263,6 +447,7 @@ function inferAvatarIconOptions(
   ]
   const options: AvatarIconOption[] = []
   const seen = new Set<string>()
+  const commonAssetTokens = getCommonAvatarAssetTokens(assets)
 
   for (const asset of assets) {
     const text = getAssetSearchText(asset)
@@ -283,26 +468,26 @@ function inferAvatarIconOptions(
         label: primary.name,
         tokens: ['primary'],
       }
-    const key = `${candidate.key}:${asset.id}`
+    const key = `asset:${asset.id}`
 
-    if (seen.has(candidate.key)) continue
+    if (seen.has(key)) continue
 
     options.push({
       asset,
-      color: candidate.color,
+      color: candidate.key.startsWith('primary-') ? '#05070b' : candidate.color,
       key,
-      label: candidate.label,
+      label: getAvatarIconLabel(asset, commonAssetTokens),
     })
-    seen.add(candidate.key)
+    seen.add(key)
   }
 
   return options.length
     ? options
     : assets.map((asset, index) => ({
         asset,
-        color: primary.hex,
+        color: '#05070b',
         key: `icon-${index}:${asset.id}`,
-        label: primary.name,
+        label: getAvatarIconLabel(asset, commonAssetTokens),
       }))
 }
 
@@ -432,18 +617,21 @@ async function drawAvatarCanvas({
   if (borderThickness > 0) {
     context.save()
     addAvatarShapePath(context, size, shape)
-    addAvatarShapePath(context, size, shape, borderThickness)
     context.fillStyle = borderColor
-    context.fill('evenodd')
+    context.fill()
     context.restore()
   }
 
-  if (backgroundColor) {
+  if (backgroundColor || borderThickness > 0) {
     context.save()
     addAvatarShapePath(context, size, shape, borderThickness)
     context.clip()
-    context.fillStyle = backgroundColor
-    context.fill()
+    if (backgroundColor) {
+      context.fillStyle = backgroundColor
+      context.fill()
+    } else {
+      context.clearRect(0, 0, size, size)
+    }
     context.restore()
   }
 
@@ -512,6 +700,13 @@ function formatAssetCount(count: number) {
   return `${count} ${count === 1 ? 'asset' : 'assets'} available`
 }
 
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
+
 function DownloadIcon() {
   return <Download aria-hidden className="h-4 w-4" />
 }
@@ -522,6 +717,10 @@ function UploadIcon() {
 
 function ResetIcon() {
   return <RotateCcw aria-hidden className="h-4 w-4" />
+}
+
+function CloseIcon() {
+  return <X aria-hidden className="h-4 w-4" />
 }
 
 function toastToneClasses(tone: ToastTone) {
@@ -1043,15 +1242,143 @@ function AvatarColorChip({
       <span
         className={`block aspect-square w-16 rounded-md border transition-colors ${selectionRing(selected)}`}
         style={
-          option.color
+          option.previewStyle ??
+          (option.color
             ? { backgroundColor: normalizeHexColor(option.color) }
-            : transparentPreviewStyle
+            : transparentPreviewStyle)
         }
       />
       <span className="w-16 text-xs leading-4 font-medium text-neutral-700">
         {option.label}
       </span>
     </button>
+  )
+}
+
+function AvatarCustomColorChip({
+  draftValue,
+  inputLabel,
+  open,
+  option,
+  pickerValue,
+  placeholder,
+  selected,
+  onChange,
+  onClose,
+  onDraftChange,
+  onOpen,
+}: {
+  draftValue: string
+  inputLabel: string
+  onChange: (value: string) => void
+  onClose: () => void
+  onDraftChange: (value: string) => void
+  onOpen: () => void
+  open: boolean
+  option: ColorOption
+  pickerValue: string
+  placeholder: string
+  selected: boolean
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !containerRef.current?.contains(event.target)
+      ) {
+        onClose()
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose()
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    document.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [onClose, open])
+
+  return (
+    <div
+      className="relative flex w-16 flex-col items-start gap-2 text-center"
+      ref={containerRef}
+    >
+      <button
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-pressed={selected}
+        className="flex w-16 cursor-pointer flex-col items-start gap-2"
+        onClick={onOpen}
+        type="button"
+      >
+        <span
+          className={`block aspect-square w-16 rounded-md border transition-colors ${selectionRing(selected)}`}
+          style={
+            option.previewStyle ??
+            (option.color
+              ? { backgroundColor: normalizeHexColor(option.color) }
+              : transparentPreviewStyle)
+          }
+        />
+        <span className="w-16 text-xs leading-4 font-medium text-neutral-700">
+          {option.label}
+        </span>
+      </button>
+      {open ? (
+        <div
+          aria-label={inputLabel}
+          className="absolute top-full left-1/2 z-30 mt-3 w-56 -translate-x-1/2 rounded-md border border-slate-200 bg-white p-3 text-left shadow-xl"
+          role="dialog"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              Custom
+            </p>
+            <button
+              aria-label="Close custom color picker"
+              className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              onClick={onClose}
+              type="button"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+          <div className="mt-3 grid grid-cols-[3rem_minmax(0,1fr)] items-end gap-3">
+            <label className="flex flex-col gap-1 text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              <span>Pick</span>
+              <input
+                aria-label={`${inputLabel} picker`}
+                className="h-9 w-12 cursor-pointer rounded-md border border-slate-300 bg-white p-1"
+                onChange={(event) => onChange(event.currentTarget.value)}
+                type="color"
+                value={pickerValue}
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1 text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
+              <span>Hex</span>
+              <input
+                aria-label={`${inputLabel} hex`}
+                className="h-9 min-w-0 rounded-md border border-slate-300 bg-white px-2.5 font-mono text-sm tracking-normal text-slate-900 uppercase"
+                onChange={(event) => onDraftChange(event.currentTarget.value)}
+                maxLength={7}
+                placeholder={placeholder}
+                type="text"
+                value={draftValue}
+              />
+            </label>
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -1165,12 +1492,16 @@ function AvatarSizeChip({
 
 function AvatarGenerator({
   assets,
+  brandLabel,
   canUseDevActions,
+  colorSections,
   colors,
   endpoints,
 }: {
   assets: BrandKitAsset[]
+  brandLabel: string
   canUseDevActions: boolean
+  colorSections: BrandKitColorSection[]
   colors: BrandKitColor[]
   endpoints?: BrandKitPageEndpoints
 }) {
@@ -1181,9 +1512,13 @@ function AvatarGenerator({
   )
   const [iconKey, setIconKey] = useState(iconOptions[0]?.key ?? '')
   const [background, setBackground] = useState('transparent')
-  const [backgroundCustomHex, setBackgroundCustomHex] = useState('#4784de')
+  const [backgroundCustomDraft, setBackgroundCustomDraft] = useState('')
+  const [backgroundCustomHex, setBackgroundCustomHex] = useState('')
+  const [backgroundCustomOpen, setBackgroundCustomOpen] = useState(false)
   const [border, setBorder] = useState('primary')
-  const [borderCustomHex, setBorderCustomHex] = useState('#4784de')
+  const [borderCustomDraft, setBorderCustomDraft] = useState('')
+  const [borderCustomHex, setBorderCustomHex] = useState('')
+  const [borderCustomOpen, setBorderCustomOpen] = useState(false)
   const [borderThickness, setBorderThickness] =
     useState<AvatarBorderThickness>('none')
   const [shape, setShape] = useState<AvatarShape>('square')
@@ -1191,13 +1526,18 @@ function AvatarGenerator({
   const [avatarSize, setAvatarSize] = useState(1024)
   const [status, setStatus] = useState('')
   const [isInstallingFavicon, setInstallingFavicon] = useState(false)
+  const customPreviewColors = useMemo(
+    () => findCustomPreviewColors(colors, colorSections),
+    [colorSections, colors],
+  )
+  const customPickerFallback = getColorPickerFallback(customPreviewColors)
   const backgroundOptions = useMemo(
-    () => makeFixedBackgroundOptions(backgroundCustomHex),
-    [backgroundCustomHex],
+    () => makeFixedBackgroundOptions(customPreviewColors, backgroundCustomHex),
+    [backgroundCustomHex, customPreviewColors],
   )
   const borderOptions = useMemo(
-    () => makeFixedBorderOptions(colors, borderCustomHex),
-    [borderCustomHex, colors],
+    () => makeFixedBorderOptions(colors, customPreviewColors, borderCustomHex),
+    [borderCustomHex, colors, customPreviewColors],
   )
   const selectedIconOption =
     iconOptions.find((option) => option.key === iconKey) ?? iconOptions[0] ?? null
@@ -1206,6 +1546,7 @@ function AvatarGenerator({
   const selectedBorder = getColorOption(borderOptions, border)
   const backgroundColor = selectedBackground?.color ?? null
   const borderColor = selectedBorder?.color ?? '#05070b'
+  const avatarFilePrefix = slugify(brandLabel) || 'brand'
   const borderThicknessPixels = getAvatarBorderThickness(
     borderThickness,
     avatarSize,
@@ -1258,9 +1599,13 @@ function AvatarGenerator({
   function resetAvatarGenerator() {
     setIconKey(iconOptions[0]?.key ?? '')
     setBackground('transparent')
-    setBackgroundCustomHex('#4784de')
+    setBackgroundCustomDraft('')
+    setBackgroundCustomHex('')
+    setBackgroundCustomOpen(false)
     setBorder('primary')
-    setBorderCustomHex('#4784de')
+    setBorderCustomDraft('')
+    setBorderCustomHex('')
+    setBorderCustomOpen(false)
     setBorderThickness('none')
     setShape('square')
     setPadding(18)
@@ -1303,7 +1648,7 @@ function AvatarGenerator({
     const link = document.createElement('a')
 
     link.href = objectUrl
-    link.download = fileName ?? `brand-avatar-${targetSize}px.png`
+    link.download = fileName ?? `${avatarFilePrefix}-avatar-${targetSize}px.png`
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -1355,6 +1700,87 @@ function AvatarGenerator({
     }
   }
 
+  function applyBackgroundCustomPickerHex(value: string) {
+    setBackgroundCustomOpen(true)
+    setBorderCustomOpen(false)
+
+    const normalized = normalizeOptionalHexColor(value)
+
+    if (!normalized) return
+
+    setBackgroundCustomDraft(normalized)
+    setBackgroundCustomHex(normalized)
+    setBackground('custom')
+  }
+
+  function applyBackgroundCustomTextHex(value: string) {
+    setBackgroundCustomOpen(true)
+    setBorderCustomOpen(false)
+    setBackgroundCustomDraft(value)
+
+    const normalized = normalizeOptionalHexColor(value)
+
+    if (!normalized) return
+
+    setBackgroundCustomHex(normalized)
+    setBackground('custom')
+  }
+
+  function ensureBorderVisible() {
+    if (borderThickness === 'none') setBorderThickness('thin')
+  }
+
+  function applyBorderCustomPickerHex(value: string) {
+    setBorderCustomOpen(true)
+    setBackgroundCustomOpen(false)
+
+    const normalized = normalizeOptionalHexColor(value)
+
+    if (!normalized) return
+
+    setBorderCustomDraft(normalized)
+    setBorderCustomHex(normalized)
+    setBorder('custom')
+    ensureBorderVisible()
+  }
+
+  function applyBorderCustomTextHex(value: string) {
+    setBorderCustomOpen(true)
+    setBackgroundCustomOpen(false)
+    setBorderCustomDraft(value)
+
+    const normalized = normalizeOptionalHexColor(value)
+
+    if (!normalized) return
+
+    setBorderCustomHex(normalized)
+    setBorder('custom')
+    ensureBorderVisible()
+  }
+
+  function selectBackgroundOption(option: ColorOption) {
+    if (option.key === 'custom') {
+      setBackgroundCustomOpen(true)
+      setBorderCustomOpen(false)
+      return
+    }
+
+    setBackground(option.key)
+    setBackgroundCustomOpen(false)
+  }
+
+  function selectBorderOption(option: ColorOption) {
+    if (option.key === 'custom') {
+      setBorderCustomOpen(true)
+      setBackgroundCustomOpen(false)
+      return
+    }
+
+    setBorder(option.key)
+    setBorderCustomOpen(false)
+    ensureBorderVisible()
+  }
+
   if (!assets.length) return null
 
   return (
@@ -1396,40 +1822,37 @@ function AvatarGenerator({
               Background
             </p>
             <div className="flex flex-wrap justify-center gap-x-3 gap-y-4">
-              {backgroundOptions.map((option) => (
-                <AvatarColorChip
-                  key={option.key}
-                  option={option}
-                  selected={selectedBackground?.key === option.key}
-                  onSelect={() => setBackground(option.key)}
-                />
-              ))}
+              {backgroundOptions.map((option) =>
+                option.key === 'custom' ? (
+                  <AvatarCustomColorChip
+                    key={option.key}
+                    draftValue={backgroundCustomDraft}
+                    inputLabel="Custom background color"
+                    open={backgroundCustomOpen}
+                    option={option}
+                    pickerValue={backgroundCustomHex || customPickerFallback}
+                    placeholder={customPickerFallback}
+                    selected={
+                      backgroundCustomOpen || selectedBackground?.key === option.key
+                    }
+                    onChange={applyBackgroundCustomPickerHex}
+                    onClose={() => setBackgroundCustomOpen(false)}
+                    onDraftChange={applyBackgroundCustomTextHex}
+                    onOpen={() => {
+                      setBackgroundCustomOpen(true)
+                      setBorderCustomOpen(false)
+                    }}
+                  />
+                ) : (
+                  <AvatarColorChip
+                    key={option.key}
+                    option={option}
+                    selected={selectedBackground?.key === option.key}
+                    onSelect={() => selectBackgroundOption(option)}
+                  />
+                ),
+              )}
             </div>
-            {background === 'custom' ? (
-              <label className="flex flex-col gap-2 text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
-                <span>Custom</span>
-                <span className="flex items-center gap-2">
-                  <input
-                    aria-label="Custom background color"
-                    className="h-10 w-10 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-1"
-                    onChange={(event) =>
-                      setBackgroundCustomHex(event.currentTarget.value)
-                    }
-                    type="color"
-                    value={normalizeHexColor(backgroundCustomHex)}
-                  />
-                  <input
-                    aria-label="Custom background hex"
-                    className="h-10 min-w-0 rounded-md border border-slate-300 bg-white px-2.5 font-mono text-sm text-slate-900"
-                    onChange={(event) =>
-                      setBackgroundCustomHex(event.currentTarget.value)
-                    }
-                    type="text"
-                    value={backgroundCustomHex}
-                  />
-                </span>
-              </label>
-            ) : null}
           </div>
           <div className="flex w-max max-w-full flex-col gap-4 justify-self-center md:col-start-1 md:row-start-3">
             <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
@@ -1458,40 +1881,35 @@ function AvatarGenerator({
               Border color
             </p>
             <div className="flex flex-wrap justify-center gap-x-3 gap-y-4">
-              {borderOptions.map((option) => (
-                <AvatarColorChip
-                  key={option.key}
-                  option={option}
-                  selected={selectedBorder?.key === option.key}
-                  onSelect={() => setBorder(option.key)}
-                />
-              ))}
+              {borderOptions.map((option) =>
+                option.key === 'custom' ? (
+                  <AvatarCustomColorChip
+                    key={option.key}
+                    draftValue={borderCustomDraft}
+                    inputLabel="Custom border color"
+                    open={borderCustomOpen}
+                    option={option}
+                    pickerValue={borderCustomHex || customPickerFallback}
+                    placeholder={customPickerFallback}
+                    selected={borderCustomOpen || selectedBorder?.key === option.key}
+                    onChange={applyBorderCustomPickerHex}
+                    onClose={() => setBorderCustomOpen(false)}
+                    onDraftChange={applyBorderCustomTextHex}
+                    onOpen={() => {
+                      setBorderCustomOpen(true)
+                      setBackgroundCustomOpen(false)
+                    }}
+                  />
+                ) : (
+                  <AvatarColorChip
+                    key={option.key}
+                    option={option}
+                    selected={selectedBorder?.key === option.key}
+                    onSelect={() => selectBorderOption(option)}
+                  />
+                ),
+              )}
             </div>
-            {border === 'custom' ? (
-              <label className="flex flex-col gap-2 text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
-                <span>Custom</span>
-                <span className="flex items-center gap-2">
-                  <input
-                    aria-label="Custom border color"
-                    className="h-10 w-10 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-1"
-                    onChange={(event) =>
-                      setBorderCustomHex(event.currentTarget.value)
-                    }
-                    type="color"
-                    value={normalizeHexColor(borderCustomHex)}
-                  />
-                  <input
-                    aria-label="Custom border hex"
-                    className="h-10 min-w-0 rounded-md border border-slate-300 bg-white px-2.5 font-mono text-sm text-slate-900"
-                    onChange={(event) =>
-                      setBorderCustomHex(event.currentTarget.value)
-                    }
-                    type="text"
-                    value={borderCustomHex}
-                  />
-                </span>
-              </label>
-            ) : null}
           </div>
           <div className="flex w-max max-w-full flex-col gap-4 justify-self-center md:col-start-3 md:row-start-2">
             <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">
@@ -2353,7 +2771,9 @@ export function BrandKitPage({
               ))}
               <AvatarGenerator
                 assets={avatarAssets}
+                brandLabel={brandLabel}
                 canUseDevActions={canInstallFavicons}
+                colorSections={manifest.colorSections}
                 colors={manifest.brandColors}
                 endpoints={endpoints}
               />

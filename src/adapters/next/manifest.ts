@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import { applyBrandCasing } from '../../core/assets.js'
 import type {
   BrandKitConfig,
   BrandKitManifest,
@@ -58,18 +59,31 @@ export function createBrandKitBannerControls(
 ): BrandKitBannerControls | undefined {
   if (!config.socialBanners) return undefined
 
+  const applyConfiguredCasing = (value: string) =>
+    applyBrandCasing(value, {
+      brandName: config.brand.name,
+      shortName: config.brand.shortName,
+    })
+  const normalizeColorLabels = (
+    colors: BrandKitSocialBannersConfig['colors'] | undefined,
+  ) =>
+    colors?.map((color) => ({
+      ...color,
+      label: applyConfiguredCasing(color.label),
+    }))
+
   return {
     alignments: [
       { key: 'left', label: 'Left' },
       { key: 'center', label: 'Center' },
       { key: 'right', label: 'Right' },
     ],
-    colors: config.socialBanners.colors,
+    colors: normalizeColorLabels(config.socialBanners.colors) ?? [],
     markVariants: config.socialBanners.markVariants.map((variant) => ({
       colorKeys: variant.colorKeys ?? Object.keys(variant.colorAssets ?? {}),
-      colorOptions: variant.colorOptions,
+      colorOptions: normalizeColorLabels(variant.colorOptions),
       key: variant.key,
-      label: variant.label,
+      label: applyConfiguredCasing(variant.label),
     })),
     patterns: [
       { key: 'diagonal-sweep', label: 'Sweep' },

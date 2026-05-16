@@ -1070,7 +1070,86 @@ function getTailwindContentGlob(configPath: string, cwd: string) {
   return `${sourcePath}/**/*.{js,mjs}`
 }
 
+function resolveCssImportPath(cwd: string, fromFile: string, importPath: string) {
+  if (importPath.startsWith('@/')) {
+    return path.join(cwd, 'src', importPath.slice(2))
+  }
+
+  if (importPath.startsWith('~/')) {
+    return path.join(cwd, importPath.slice(2))
+  }
+
+  if (importPath.startsWith('/')) {
+    return path.join(cwd, importPath.slice(1))
+  }
+
+  if (importPath.startsWith('.')) {
+    return path.resolve(path.dirname(fromFile), importPath)
+  }
+
+  return null
+}
+
+function getCssImports(source: string) {
+  const imports: string[] = []
+  const importPattern =
+    /import\s+(?:[^'"]+\s+from\s+)?['"]([^'"]+\.css)['"]/g
+  let match: RegExpExecArray | null
+
+  while ((match = importPattern.exec(source))) {
+    imports.push(match[1])
+  }
+
+  return imports
+}
+
+function isTailwindCssSource(source: string) {
+  return (
+    source.includes('@import "tailwindcss"') ||
+    source.includes("@import 'tailwindcss'")
+  )
+}
+
+async function findImportedTailwindCssPath(cwd: string, appDir: string) {
+  const layoutCandidates = [
+    path.join(cwd, appDir, 'layout.tsx'),
+    path.join(cwd, appDir, 'layout.jsx'),
+    path.join(cwd, appDir, 'layout.ts'),
+    path.join(cwd, appDir, 'layout.js'),
+    path.join(cwd, 'src/app/layout.tsx'),
+    path.join(cwd, 'src/app/layout.jsx'),
+    path.join(cwd, 'src/app/layout.ts'),
+    path.join(cwd, 'src/app/layout.js'),
+    path.join(cwd, 'app/layout.tsx'),
+    path.join(cwd, 'app/layout.jsx'),
+    path.join(cwd, 'app/layout.ts'),
+    path.join(cwd, 'app/layout.js'),
+  ]
+
+  for (const layoutPath of Array.from(new Set(layoutCandidates))) {
+    if (!(await pathExists(layoutPath))) continue
+
+    const layoutSource = await readFile(layoutPath, 'utf8')
+
+    for (const cssImport of getCssImports(layoutSource)) {
+      const cssPath = resolveCssImportPath(cwd, layoutPath, cssImport)
+
+      if (!cssPath || !(await pathExists(cssPath))) continue
+
+      const cssSource = await readFile(cssPath, 'utf8')
+
+      if (isTailwindCssSource(cssSource)) return cssPath
+    }
+  }
+
+  return null
+}
+
 async function findTailwindCssPath(cwd: string, appDir: string) {
+  const importedCssPath = await findImportedTailwindCssPath(cwd, appDir)
+
+  if (importedCssPath) return importedCssPath
+
   const candidates = [
     path.join(cwd, appDir, 'globals.css'),
     path.join(cwd, appDir, 'global.css'),
@@ -1089,7 +1168,7 @@ async function findTailwindCssPath(cwd: string, appDir: string) {
 
     const source = await readFile(candidate, 'utf8')
 
-    if (source.includes('@import "tailwindcss"') || source.includes("@import 'tailwindcss'")) {
+    if (isTailwindCssSource(source)) {
       return candidate
     }
   }

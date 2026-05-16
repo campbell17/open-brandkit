@@ -4,6 +4,7 @@ import path from 'node:path'
 import JSZip from 'jszip'
 
 import {
+  applyBrandCasing,
   compareDownloads,
   createEmptyLogoGroups,
   ensureDirectory,
@@ -34,8 +35,11 @@ import type {
   BrandKitAssetGroup,
   BrandKitBannerAsset,
   BrandKitBannerGroup,
+  BrandKitColor,
+  BrandKitColorSection,
   BrandKitConfig,
   BrandKitManifest,
+  BrandKitPrintColorGroup,
   BrandKitSocialBannersConfig,
 } from './types.js'
 
@@ -88,6 +92,50 @@ function createDownload(publicUrl: string): BrandKitAssetDownload {
     format: getDownloadFormat(publicUrl),
     url: publicUrl,
   }
+}
+
+function applyConfiguredBrandCasing(config: BrandKitConfig, value: string) {
+  return applyBrandCasing(value, {
+    brandName: config.brand.name,
+    shortName: config.brand.shortName,
+  })
+}
+
+function applyConfiguredBrandCasingToColors(
+  config: BrandKitConfig,
+  colors: BrandKitColor[],
+) {
+  return colors.map((color) => ({
+    ...color,
+    name: applyConfiguredBrandCasing(config, color.name),
+  }))
+}
+
+function applyConfiguredBrandCasingToColorSections(
+  config: BrandKitConfig,
+  sections: BrandKitColorSection[],
+) {
+  return sections.map((section) => ({
+    ...section,
+    label: applyConfiguredBrandCasing(config, section.label),
+    rows: section.rows.map((row) =>
+      row.map((name) => applyConfiguredBrandCasing(config, name)),
+    ),
+  }))
+}
+
+function applyConfiguredBrandCasingToPrintColorGroups(
+  config: BrandKitConfig,
+  groups: BrandKitPrintColorGroup[],
+) {
+  return groups.map((group) => ({
+    ...group,
+    label: applyConfiguredBrandCasing(config, group.label),
+    items: group.items.map((item) => ({
+      ...item,
+      pantone: applyConfiguredBrandCasing(config, item.pantone),
+    })),
+  }))
 }
 
 async function discoverLogoGroups({
@@ -157,7 +205,11 @@ async function discoverLogoGroups({
 
     assets.set(stem, {
       id: `${group.key}:${stem}`,
-      title: humanizeAssetTitle(stem, config.brand.name) || stem,
+      title:
+        humanizeAssetTitle(stem, {
+          brandName: config.brand.name,
+          shortName: config.brand.shortName,
+        }) || stem,
       previewTone: inferPreviewTone(relativePath),
       previewUrl: publicUrl,
       downloads: [download],
@@ -453,15 +505,21 @@ export async function buildBrandKit(
     outputRoot,
     projectRoot,
   })
-  const brandColors = await loadBrandKitColors(config.colors, projectRoot)
-  const colorSections = await loadBrandKitColorSections(
-    config.colors,
-    projectRoot,
-    brandColors,
+  const brandColors = applyConfiguredBrandCasingToColors(
+    config,
+    await loadBrandKitColors(config.colors, projectRoot),
   )
-  const printColorGroups = await loadBrandKitPrintColorGroups(
-    config.colors,
-    projectRoot,
+  const colorSections = applyConfiguredBrandCasingToColorSections(
+    config,
+    await loadBrandKitColorSections(
+      config.colors,
+      projectRoot,
+      brandColors,
+    ),
+  )
+  const printColorGroups = applyConfiguredBrandCasingToPrintColorGroups(
+    config,
+    await loadBrandKitPrintColorGroups(config.colors, projectRoot),
   )
   const bannerResult = await renderBannerGroups({
     assetBasePath,
