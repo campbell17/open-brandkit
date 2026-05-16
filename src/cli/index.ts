@@ -29,7 +29,6 @@ type InitAnswers = {
   brandName: string
   colorPath: string
   configPath: string
-  framework: 'next' | 'static'
   logoDir: string
   route: string
   shortName: string
@@ -51,7 +50,7 @@ Usage:
   open-brandkit build [--config brandkit.config.ts]
 
 Commands:
-  init    Run the installer wizard, create config, and wire framework files.
+  init    Run the Next.js App Router installer wizard and create the Brand Kit.
   build   Generate public/brandkit assets, manifest, downloads, and page.
 
 Init options:
@@ -59,8 +58,6 @@ Init options:
   --force               Overwrite generated files if they already exist.
   --build               Run the Brand Kit build after installing.
   --install             Run the package-manager install after writing package.json.
-  --framework next      Generate Next.js App Router files.
-  --framework static    Only generate config and static output.
   --brand "Name"        Brand name.
   --short-name "Name"   Short brand name.
   --logos path          Logo source directory.
@@ -72,6 +69,10 @@ Init options:
 
 function hasFlag(args: string[], flag: string) {
   return args.includes(flag)
+}
+
+function hasOption(args: string[], option: string) {
+  return args.some((arg) => arg === option || arg.startsWith(`${option}=`))
 }
 
 function getFlagValue(args: string[], flag: string) {
@@ -276,15 +277,6 @@ async function detectAppDir(cwd: string, packageName?: string) {
   if (packageName) return 'app'
 
   return 'app'
-}
-
-function detectFramework(packageJson: Awaited<ReturnType<typeof readPackageJson>>) {
-  const dependencies = {
-    ...packageJson?.value.dependencies,
-    ...packageJson?.value.devDependencies,
-  }
-
-  return dependencies.next ? 'next' : 'static'
 }
 
 function colorSourceFromPath(colorPath: string): BrandKitColorSource {
@@ -710,18 +702,17 @@ async function collectInitAnswers(cwd: string, args: string[]) {
     ? createInterface({ input: process.stdin, output: process.stdout })
     : null
   const packageJson = await readPackageJson(cwd)
-  const detectedFramework = detectFramework(packageJson)
   const defaultBrandName = packageJson?.value.name
     ? titleFromPackageName(packageJson.value.name)
     : 'Acme Studio'
-  const frameworkFlag = getFlagValue(args, '--framework')
-  const framework =
-    frameworkFlag === 'next' || frameworkFlag === 'static'
-      ? frameworkFlag
-      : ((await prompt('Framework', detectedFramework, {
-          enabled: interactive,
-          rl,
-        })) as InitAnswers['framework'])
+
+  if (hasOption(args, '--framework')) {
+    rl?.close()
+    throw new Error(
+      'Unknown option: --framework. Open BrandKit init currently supports Next.js App Router projects only. Additional installation paths are planned.',
+    )
+  }
+
   const brandName = await prompt(
     'Brand name',
     getFlagValue(args, '--brand') ?? defaultBrandName,
@@ -746,15 +737,12 @@ async function collectInitAnswers(cwd: string, args: string[]) {
     enabled: interactive && !getFlagValue(args, '--route'),
     rl,
   })
-  const appDir =
-    framework === 'next'
-      ? await prompt(
-          'Next app directory',
-          getFlagValue(args, '--app-dir') ??
-            (await detectAppDir(cwd, packageJson?.value.name)),
-          { enabled: interactive && !getFlagValue(args, '--app-dir'), rl },
-        )
-      : ''
+  const appDir = await prompt(
+    'Next app directory',
+    getFlagValue(args, '--app-dir') ??
+      (await detectAppDir(cwd, packageJson?.value.name)),
+    { enabled: interactive && !getFlagValue(args, '--app-dir'), rl },
+  )
   const configPath = path.resolve(
     cwd,
     getFlagValue(args, '--config') ?? 'brandkit.config.ts',
@@ -774,7 +762,6 @@ async function collectInitAnswers(cwd: string, args: string[]) {
     brandName,
     colorPath: toPosixPath(colorPath),
     configPath,
-    framework,
     logoDir: toPosixPath(logoDir),
     route,
     shortName,
@@ -1313,22 +1300,20 @@ async function initProject(cwd: string, args: string[]): Promise<InitResult> {
     skipped,
   })
 
-  if (answers.framework === 'next') {
-    await writeNextAdapterFiles({
-      answers,
-      configPath: answers.configPath,
-      created,
-      cwd,
-      force,
-      skipped,
-    })
-    await updateTailwindSource({
-      appDir: answers.appDir,
-      created,
-      cwd,
-      skipped,
-    })
-  }
+  await writeNextAdapterFiles({
+    answers,
+    configPath: answers.configPath,
+    created,
+    cwd,
+    force,
+    skipped,
+  })
+  await updateTailwindSource({
+    appDir: answers.appDir,
+    created,
+    cwd,
+    skipped,
+  })
 
   await updatePackageJson({ created, cwd, force, skipped })
 

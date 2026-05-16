@@ -43,9 +43,6 @@ Open BrandKit currently works best with:
 - A color source file in Markdown, JSON, CSV, or TypeScript config.
 - Vercel or any host that can serve a normal Next.js app.
 
-It can also generate static files under `public/brandkit`, but the full
-interactive experience uses the Next.js adapter.
-
 The generated Next.js page is Tailwind-first. Having Tailwind installed is only
 half of the requirement: your app also needs to include Open BrandKit's shipped
 components when Tailwind builds its CSS. During `init`, Open BrandKit tries to
@@ -66,8 +63,8 @@ hand.
 Open BrandKit does not design your brand for you. It expects approved source
 files to already exist.
 
-It also does not yet support every framework. The core build logic is written to
-be reusable, but the installer and interactive page are focused on Next.js first.
+It also does not yet support every framework. The public installer and
+interactive page are focused on Next.js first.
 
 The social banner preset controls can run on production when you wire the Next
 routes. Custom banner uploads, resets, and favicon installation stay local-only
@@ -149,7 +146,6 @@ For a noninteractive install:
 npx open-brandkit init \
   --yes \
   --install \
-  --framework next \
   --brand "Acme" \
   --short-name Acme \
   --logos public/logos \
@@ -280,3 +276,10 @@ Open BrandKit is early. The main path today is:
 ```text
 existing Next.js app + local brand assets -> generated /brandkit page
 ```
+
+## Up Next
+
+Additional installation paths are planned, including Astro and other static or
+framework-specific setups. For now, the public installer is intentionally focused
+on Next.js App Router projects so the generated brand kit matches the full
+interactive experience.
