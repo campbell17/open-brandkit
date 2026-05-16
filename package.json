@@ -1,6 +1,6 @@
 {
   "name": "open-brandkit",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "A reusable, self-service brand kit system for websites and product repos.",
   "type": "module",
   "main": "./dist/core/index.js",

@@ -2678,8 +2678,33 @@ export function BrandKitPage({
     target.scrollIntoView({ behavior: 'smooth' })
   }
 
+  useEffect(() => {
+    const previousHtmlOverflow = document.documentElement.style.overflow
+    const previousBodyOverflow = document.body.style.overflow
+
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow
+      document.body.style.overflow = previousBodyOverflow
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
+    <div
+      className="fixed inset-0 min-h-screen overflow-y-auto overscroll-contain bg-slate-50 text-slate-950"
+      style={{ zIndex: 2147483647 }}
+    >
+      <style>
+        {`
+body > header,
+body > nav,
+body > footer {
+  display: none !important;
+}
+`}
+      </style>
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[1fr_360px] lg:items-center">
