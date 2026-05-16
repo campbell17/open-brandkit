@@ -1176,6 +1176,140 @@ async function findTailwindCssPath(cwd: string, appDir: string) {
   return null
 }
 
+async function findPostcssConfigPath(cwd: string) {
+  const candidates = [
+    'postcss.config.mjs',
+    'postcss.config.js',
+    'postcss.config.cjs',
+    'postcss.config.ts',
+  ].map((fileName) => path.join(cwd, fileName))
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) return candidate
+  }
+
+  return null
+}
+
+async function ensureTailwindPostcssConfig({
+  created,
+  cwd,
+  skipped,
+}: {
+  created: string[]
+  cwd: string
+  skipped: string[]
+}) {
+  const existingConfigPath = await findPostcssConfigPath(cwd)
+
+  if (!existingConfigPath) {
+    const configPath = path.join(cwd, 'postcss.config.mjs')
+    const source = `const config = {
+  plugins: {
+    '@tailwindcss/postcss': {},
+  },
+}
+
+export default config
+`
+
+    await writeFile(configPath, source)
+    created.push(configPath)
+    return
+  }
+
+  const source = await readFile(existingConfigPath, 'utf8')
+
+  if (source.includes('@tailwindcss/postcss')) {
+    skipped.push(existingConfigPath)
+    return
+  }
+
+  const nextSource = source.replace(
+    /(plugins\s*:\s*\{)/,
+    "$1\n    '@tailwindcss/postcss': {},",
+  )
+
+  if (nextSource === source) {
+    skipped.push(existingConfigPath)
+    return
+  }
+
+  await writeFile(existingConfigPath, nextSource)
+  created.push(existingConfigPath)
+}
+
+async function ensureLayoutImportsCss({
+  created,
+  cssImport,
+  layoutPath,
+  skipped,
+}: {
+  created: string[]
+  cssImport: string
+  layoutPath: string
+  skipped: string[]
+}) {
+  if (!(await pathExists(layoutPath))) return
+
+  const source = await readFile(layoutPath, 'utf8')
+
+  if (
+    source.includes(`'${cssImport}'`) ||
+    source.includes(`"${cssImport}"`)
+  ) {
+    skipped.push(layoutPath)
+    return
+  }
+
+  await writeFile(layoutPath, `import '${cssImport}'\n${source}`)
+
+  if (!created.includes(layoutPath)) created.push(layoutPath)
+}
+
+async function createRouteTailwindCss({
+  created,
+  cwd,
+  layoutPath,
+  routeDir,
+  skipped,
+}: {
+  created: string[]
+  cwd: string
+  layoutPath: string
+  routeDir: string
+  skipped: string[]
+}) {
+  const cssPath = path.join(routeDir, 'open-brandkit.css')
+  const directive = getTailwindSourceDirective(cssPath, cwd)
+  const source = `@import "tailwindcss";
+${directive}
+`
+
+  if (await pathExists(cssPath)) {
+    const existingSource = await readFile(cssPath, 'utf8')
+
+    if (existingSource.includes('open-brandkit')) {
+      skipped.push(cssPath)
+    } else {
+      await writeFile(cssPath, `${existingSource.trimEnd()}\n${directive}\n`)
+      created.push(cssPath)
+    }
+  } else {
+    await mkdir(path.dirname(cssPath), { recursive: true })
+    await writeFile(cssPath, source)
+    created.push(cssPath)
+  }
+
+  await ensureLayoutImportsCss({
+    created,
+    cssImport: './open-brandkit.css',
+    layoutPath,
+    skipped,
+  })
+  await ensureTailwindPostcssConfig({ created, cwd, skipped })
+}
+
 async function findTailwindConfigPaths(cwd: string) {
   const candidates = [
     'tailwind.config.ts',
@@ -1234,11 +1368,13 @@ async function updateTailwindSource({
   appDir,
   created,
   cwd,
+  route,
   skipped,
 }: {
   appDir: string
   created: string[]
   cwd: string
+  route: string
   skipped: string[]
 }) {
   if (await updateTailwindConfigContent({ created, cwd, skipped })) {
@@ -1248,7 +1384,15 @@ async function updateTailwindSource({
   const cssPath = await findTailwindCssPath(cwd, appDir)
 
   if (!cssPath) {
-    skipped.push('Tailwind source configuration')
+    const routeDir = path.join(cwd, appDir, ...routeToSegments(route))
+
+    await createRouteTailwindCss({
+      created,
+      cwd,
+      layoutPath: path.join(routeDir, 'layout.tsx'),
+      routeDir,
+      skipped,
+    })
     return
   }
 
@@ -1391,6 +1535,7 @@ async function initProject(cwd: string, args: string[]): Promise<InitResult> {
     appDir: answers.appDir,
     created,
     cwd,
+    route: answers.route,
     skipped,
   })
 

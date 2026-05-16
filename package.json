@@ -1,6 +1,6 @@
 {
   "name": "open-brandkit",
-  "version": "0.4.9",
+  "version": "0.5.0",
   "description": "A reusable, self-service brand kit system for websites and product repos.",
   "type": "module",
   "homepage": "https://github.com/campbell17/open-brandkit#readme",
@@ -40,7 +40,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test": "echo \"No tests yet\"",
@@ -77,7 +77,9 @@
     "next": "^16.2.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "@tailwindcss/postcss": "^4.0.0",
+    "tailwindcss": "^4.0.0"
   },
   "dependencies": {
     "jiti": "^2.7.0",

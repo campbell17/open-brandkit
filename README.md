@@ -61,6 +61,12 @@ configuration is highly custom, generated, or split across unusual files, Open
 BrandKit may leave it untouched and print the exact scan/source line to add by
 hand.
 
+In older Pages Router projects that do not already have a Tailwind stylesheet,
+the installer creates a small route-local stylesheet for `/brandkit` and wires it
+to Tailwind 4 with a PostCSS config. This keeps the rest of the site on its
+existing CSS/Sass setup while giving the generated brand kit the Tailwind
+utilities it needs.
+
 ## What It Does Not Do
 
 Open BrandKit does not design your brand for you. It expects approved source
@@ -171,12 +177,17 @@ Open BrandKit writes a small set of files into your app:
 brandkit.config.ts
 src/app/brandkit/page.tsx
 src/app/brandkit/layout.tsx
+src/app/brandkit/open-brandkit.css
 src/app/brandkit/favicon/route.ts
 src/app/brandkit/banners/route.ts
 src/app/brandkit/banners/presets/route.ts
 src/app/brandkit/download/[group]/route.ts
 public/brandkit/*
 ```
+
+Depending on your existing Tailwind setup, it may also update
+`tailwind.config.*`, add an `@source` directive to an existing Tailwind
+stylesheet, or create `postcss.config.mjs` for Tailwind 4.
 
 It also adds a script:
 
