@@ -15,7 +15,7 @@
     "access": "public"
   },
   "bin": {
-    "open-brandkit": "./dist/cli/index.js"
+    "open-brandkit": "dist/cli/index.js"
   },
   "files": [
     "dist",
