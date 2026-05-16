@@ -39,7 +39,7 @@ logos, your icons, your wordmarks, and your colors.
 
 Open BrandKit currently works best with:
 
-- A Next.js App Router site.
+- A Next.js 14 or newer App Router site.
 - Tailwind CSS 3 or 4.
 - Logos and icons stored in your repo, usually under `public/logos`.
 - SVG or PNG brand assets.

@@ -1,6 +1,6 @@
 {
   "name": "open-brandkit",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "description": "A reusable, self-service brand kit system for websites and product repos.",
   "type": "module",
   "homepage": "https://github.com/campbell17/open-brandkit#readme",
@@ -54,7 +54,7 @@
   ],
   "license": "SEE LICENSE IN LICENSE",
   "peerDependencies": {
-    "next": ">=15",
+    "next": ">=14",
     "react": ">=18",
     "react-dom": ">=18",
     "tailwindcss": ">=3"
