@@ -144,7 +144,6 @@ For a noninteractive install:
 
 ```bash
 npx open-brandkit init \
-  --yes \
   --install \
   --brand "Acme" \
   --short-name Acme \
