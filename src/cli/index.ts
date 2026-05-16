@@ -973,6 +973,57 @@ export default function BrandKitLayout({ children }: { children: ReactNode }) {
 `
 }
 
+function rootLayoutSource() {
+  return `import type { ReactNode } from 'react'
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
+}
+`
+}
+
+async function findExistingAppRootLayout(cwd: string, appDir: string) {
+  const layoutCandidates = ['layout.tsx', 'layout.jsx', 'layout.ts', 'layout.js']
+
+  for (const layoutFile of layoutCandidates) {
+    const layoutPath = path.join(cwd, appDir, layoutFile)
+
+    if (await pathExists(layoutPath)) {
+      return layoutPath
+    }
+  }
+
+  return null
+}
+
+async function ensureAppRootLayout({
+  appDir,
+  created,
+  cwd,
+  skipped,
+}: {
+  appDir: string
+  created: string[]
+  cwd: string
+  skipped: string[]
+}) {
+  const rootLayoutPath = path.join(cwd, appDir, 'layout.tsx')
+  const existingLayoutPath = await findExistingAppRootLayout(cwd, appDir)
+
+  if (existingLayoutPath) {
+    skipped.push(existingLayoutPath)
+    return
+  }
+
+  await mkdir(path.dirname(rootLayoutPath), { recursive: true })
+  await writeFile(rootLayoutPath, rootLayoutSource())
+  created.push(rootLayoutPath)
+}
+
 async function writeNextAdapterFiles({
   answers,
   configPath,
@@ -996,6 +1047,12 @@ async function writeNextAdapterFiles({
   const downloadPath = path.join(routeDir, 'download', '[group]', 'route.ts')
   const layoutPath = path.join(routeDir, 'layout.tsx')
 
+  await ensureAppRootLayout({
+    appDir: answers.appDir,
+    created,
+    cwd,
+    skipped,
+  })
   await writeGeneratedFile({
     content: pageRouteSource(importPath(pagePath, configPath)),
     created,

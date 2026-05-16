@@ -175,19 +175,24 @@ Open BrandKit writes a small set of files into your app:
 
 ```text
 brandkit.config.ts
-src/app/brandkit/page.tsx
-src/app/brandkit/layout.tsx
-src/app/brandkit/open-brandkit.css
-src/app/brandkit/favicon/route.ts
-src/app/brandkit/banners/route.ts
-src/app/brandkit/banners/presets/route.ts
-src/app/brandkit/download/[group]/route.ts
+<app-dir>/layout.tsx
+<app-dir>/brandkit/page.tsx
+<app-dir>/brandkit/layout.tsx
+<app-dir>/brandkit/open-brandkit.css
+<app-dir>/brandkit/favicon/route.ts
+<app-dir>/brandkit/banners/route.ts
+<app-dir>/brandkit/banners/presets/route.ts
+<app-dir>/brandkit/download/[group]/route.ts
 public/brandkit/*
 ```
 
 Depending on your existing Tailwind setup, it may also update
 `tailwind.config.*`, add an `@source` directive to an existing Tailwind
 stylesheet, or create `postcss.config.cjs` for Tailwind 4.
+
+If your project is an older Pages Router app with no App Router root layout yet,
+the installer also creates `<app-dir>/layout.tsx` so the `/brandkit` route can
+hydrate normally.
 
 It also adds a script:
 
