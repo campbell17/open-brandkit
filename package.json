@@ -1,8 +1,10 @@
 {
   "name": "open-brandkit",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "A reusable, self-service brand kit system for websites and product repos.",
   "type": "module",
+  "main": "./dist/core/index.js",
+  "types": "./dist/core/index.d.ts",
   "homepage": "https://github.com/campbell17/open-brandkit#readme",
   "repository": {
     "type": "git",
@@ -37,6 +39,19 @@
     "./next/server": {
       "types": "./dist/adapters/next/server.d.ts",
       "import": "./dist/adapters/next/server.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "next": [
+        "./dist/adapters/next/index.d.ts"
+      ],
+      "next/server": [
+        "./dist/adapters/next/server.d.ts"
+      ],
+      "*": [
+        "./dist/core/index.d.ts"
+      ]
     }
   },
   "scripts": {

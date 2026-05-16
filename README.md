@@ -187,7 +187,7 @@ public/brandkit/*
 
 Depending on your existing Tailwind setup, it may also update
 `tailwind.config.*`, add an `@source` directive to an existing Tailwind
-stylesheet, or create `postcss.config.mjs` for Tailwind 4.
+stylesheet, or create `postcss.config.cjs` for Tailwind 4.
 
 It also adds a script:
 

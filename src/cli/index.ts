@@ -869,9 +869,9 @@ async function makeConfig(cwd: string, answers: InitAnswers): Promise<BrandKitCo
 }
 
 function configSource(config: BrandKitConfig) {
-  return `import type { BrandKitConfig } from 'open-brandkit'
+  return `import { defineBrandKitConfig } from 'open-brandkit'
 
-export default ${JSON.stringify(config, null, 2)} satisfies BrandKitConfig
+export default defineBrandKitConfig(${JSON.stringify(config, null, 2)})
 `
 }
 
@@ -1178,10 +1178,11 @@ async function findTailwindCssPath(cwd: string, appDir: string) {
 
 async function findPostcssConfigPath(cwd: string) {
   const candidates = [
-    'postcss.config.mjs',
+    '.postcssrc.json',
+    'postcss.config.json',
+    '.postcssrc.js',
     'postcss.config.js',
     'postcss.config.cjs',
-    'postcss.config.ts',
   ].map((fileName) => path.join(cwd, fileName))
 
   for (const candidate of candidates) {
@@ -1203,14 +1204,14 @@ async function ensureTailwindPostcssConfig({
   const existingConfigPath = await findPostcssConfigPath(cwd)
 
   if (!existingConfigPath) {
-    const configPath = path.join(cwd, 'postcss.config.mjs')
+    const configPath = path.join(cwd, 'postcss.config.cjs')
     const source = `const config = {
   plugins: {
     '@tailwindcss/postcss': {},
   },
 }
 
-export default config
+module.exports = config
 `
 
     await writeFile(configPath, source)
