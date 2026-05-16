@@ -16,6 +16,9 @@ Open BrandKit is source-available. You can use it in personal, internal,
 client, agency, and commercial projects, but you cannot repackage or resell Open
 BrandKit itself as a standalone or competing product.
 
+Open BrandKit is currently early alpha software. It is published on npm, but the
+installer and generated page may still change quickly before a stable release.
+
 ## What It Creates
 
 Open BrandKit can generate a brand kit with:
@@ -270,11 +273,13 @@ See `LICENSE` for the full terms.
 
 ## Status
 
-Open BrandKit is early. The main path today is:
+Open BrandKit is early alpha software. The main path today is:
 
 ```text
 existing Next.js app + local brand assets -> generated /brandkit page
 ```
+
+If you want to pin the alpha dist-tag explicitly, use `open-brandkit@alpha`.
 
 ## Up Next
 
