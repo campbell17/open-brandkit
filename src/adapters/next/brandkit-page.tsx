@@ -12,6 +12,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import JSZip from 'jszip'
 import {
   useEffect,
   useMemo,
@@ -113,6 +114,8 @@ const avatarBorderThicknessOptions = [
 const avatarSizeOptions = [512, 1024] as const
 const avatarBorderStep = 4
 const avatarMaxBorderRatio = 96 / 512
+const faviconPngSizes = [16, 32, 48, 180, 192, 512] as const
+const faviconIcoSizes = [16, 32, 48] as const
 const bannerPreviewScale = 0.5
 const deterministicIntro =
   'Approved marks, avatar-ready presets, social profile assets, and the current color system.'
@@ -657,6 +660,65 @@ async function drawAvatarCanvas({
     iconWidth,
     iconHeight,
   )
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) {
+        resolve(result)
+        return
+      }
+
+      reject(new Error('Could not export PNG.'))
+    }, 'image/png')
+  })
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = objectUrl
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+}
+
+function makeIcoBlob(images: { size: number; buffer: ArrayBuffer }[]) {
+  const headerLength = 6
+  const directoryLength = images.length * 16
+  const totalLength =
+    headerLength +
+    directoryLength +
+    images.reduce((total, image) => total + image.buffer.byteLength, 0)
+  const bytes = new Uint8Array(totalLength)
+  const view = new DataView(bytes.buffer)
+  let offset = headerLength + directoryLength
+
+  view.setUint16(0, 0, true)
+  view.setUint16(2, 1, true)
+  view.setUint16(4, images.length, true)
+
+  images.forEach((image, index) => {
+    const entryOffset = headerLength + index * 16
+    const imageBytes = new Uint8Array(image.buffer)
+
+    view.setUint8(entryOffset, image.size === 256 ? 0 : image.size)
+    view.setUint8(entryOffset + 1, image.size === 256 ? 0 : image.size)
+    view.setUint8(entryOffset + 2, 0)
+    view.setUint8(entryOffset + 3, 0)
+    view.setUint16(entryOffset + 4, 1, true)
+    view.setUint16(entryOffset + 6, 32, true)
+    view.setUint32(entryOffset + 8, imageBytes.byteLength, true)
+    view.setUint32(entryOffset + 12, offset, true)
+    bytes.set(imageBytes, offset)
+    offset += imageBytes.byteLength
+  })
+
+  return new Blob([bytes], { type: 'image/x-icon' })
 }
 
 function createColorRows(manifest: BrandKitManifest): BrandColorRows {
@@ -1525,6 +1587,7 @@ function AvatarGenerator({
   const [padding, setPadding] = useState(18)
   const [avatarSize, setAvatarSize] = useState(1024)
   const [status, setStatus] = useState('')
+  const [isDownloadingFavicons, setDownloadingFavicons] = useState(false)
   const [isInstallingFavicon, setInstallingFavicon] = useState(false)
   const customPreviewColors = useMemo(
     () => findCustomPreviewColors(colors, colorSections),
@@ -1634,38 +1697,68 @@ function AvatarGenerator({
 
   async function downloadAvatar(targetSize = avatarSize, fileName?: string) {
     const canvas = await createAvatarCanvas(targetSize)
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((result) => {
-        if (result) {
-          resolve(result)
-          return
-        }
+    const blob = await canvasToPngBlob(canvas)
 
-        reject(new Error('Could not export PNG.'))
-      }, 'image/png')
-    })
-    const objectUrl = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-
-    link.href = objectUrl
-    link.download = fileName ?? `${avatarFilePrefix}-avatar-${targetSize}px.png`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+    downloadBlob(blob, fileName ?? `${avatarFilePrefix}-avatar-${targetSize}px.png`)
   }
 
   async function downloadFavicons() {
-    for (const faviconSize of [16, 32, 180, 192, 512]) {
-      await downloadAvatar(
-        faviconSize,
-        faviconSize === 180
-          ? 'apple-touch-icon.png'
-          : `favicon-${faviconSize}x${faviconSize}.png`,
-      )
-    }
+    setDownloadingFavicons(true)
+    setStatus('Building favicon kit...')
 
-    setStatus('Downloaded favicon PNGs.')
+    try {
+      const zip = new JSZip()
+      const pngs = new Map<number, Blob>()
+
+      await Promise.all(
+        faviconPngSizes.map(async (faviconSize) => {
+          const canvas = await createAvatarCanvas(faviconSize)
+          pngs.set(faviconSize, await canvasToPngBlob(canvas))
+        }),
+      )
+
+      const getPng = (size: number) => {
+        const blob = pngs.get(size)
+
+        if (!blob) throw new Error(`Could not generate ${size}px favicon.`)
+
+        return blob
+      }
+      const ico = makeIcoBlob(
+        await Promise.all(
+          faviconIcoSizes.map(async (faviconSize) => ({
+            size: faviconSize,
+            buffer: await getPng(faviconSize).arrayBuffer(),
+          })),
+        ),
+      )
+      const pngEntries = [
+        { fileName: 'favicon-16x16.png', size: 16 },
+        { fileName: 'favicon-32x32.png', size: 32 },
+        { fileName: 'favicon-48x48.png', size: 48 },
+        { fileName: 'apple-touch-icon.png', size: 180 },
+        { fileName: 'android-chrome-192x192.png', size: 192 },
+        { fileName: 'android-chrome-512x512.png', size: 512 },
+        { fileName: 'icon1.png', size: 32 },
+        { fileName: 'icon2.png', size: 192 },
+        { fileName: 'icon3.png', size: 512 },
+        { fileName: 'apple-icon.png', size: 180 },
+      ] as const
+
+      zip.file('favicon.ico', ico)
+      pngEntries.forEach((entry) => zip.file(entry.fileName, getPng(entry.size)))
+
+      const content = await zip.generateAsync({ type: 'blob' })
+
+      downloadBlob(content, `${avatarFilePrefix}-favicons.zip`)
+      setStatus(`Downloaded ${pngEntries.length + 1} favicon files.`)
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : 'Could not download favicon kit.',
+      )
+    } finally {
+      setDownloadingFavicons(false)
+    }
   }
 
   async function installFavicons() {
@@ -1978,12 +2071,17 @@ function AvatarGenerator({
             <span>Download PNG ({avatarSize}px)</span>
           </button>
           <button
-            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 transition-colors hover:border-slate-400 hover:bg-slate-50"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 transition-colors hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isDownloadingFavicons}
             onClick={() => void downloadFavicons()}
             type="button"
           >
             <DownloadIcon />
-            <span>Download favicon PNGs</span>
+            <span>
+              {isDownloadingFavicons
+                ? 'Building favicon kit...'
+                : 'Download favicon kit'}
+            </span>
           </button>
           {canInstallFavicon ? (
             <button
