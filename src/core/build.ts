@@ -1,7 +1,9 @@
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 
 import JSZip from 'jszip'
+import type sharp from 'sharp'
 
 import {
   applyBrandCasing,
@@ -43,6 +45,14 @@ import type {
   BrandKitSocialBannersConfig,
 } from './types.js'
 
+const requireFromHere = createRequire(import.meta.url)
+const sharpPackageName = 'sha' + 'rp'
+const generatedLogoPngMaxSize = 2400
+
+function getSharp(): typeof sharp {
+  return requireFromHere(sharpPackageName) as typeof sharp
+}
+
 export type BuildBrandKitOptions = {
   cwd?: string
   customBannerIds?: readonly string[]
@@ -72,6 +82,18 @@ function outputFileNameForPreset(brandName: string, key: string) {
   return `${brandSlug}-${slugify(key)}.png`
 }
 
+function stripExtension(filePath: string) {
+  return filePath.replace(/\.[^.]+$/, '')
+}
+
+function replaceExtension(filePath: string, extension: string) {
+  return `${stripExtension(filePath)}${extension}`
+}
+
+function outputPathFromRelative(outputRoot: string, relativePath: string) {
+  return path.join(outputRoot, ...relativePath.split('/'))
+}
+
 function resolveColor(
   value: string | undefined,
   colors: BrandKitSocialBannersConfig['colors'],
@@ -92,6 +114,21 @@ function createDownload(publicUrl: string): BrandKitAssetDownload {
     format: getDownloadFormat(publicUrl),
     url: publicUrl,
   }
+}
+
+async function renderLogoPng(sourcePath: string, destinationPath: string) {
+  const sharp = getSharp()
+
+  await ensureDirectory(path.dirname(destinationPath))
+  await sharp(sourcePath, { density: 300 })
+    .resize({
+      width: generatedLogoPngMaxSize,
+      height: generatedLogoPngMaxSize,
+      fit: 'inside',
+      withoutEnlargement: false,
+    })
+    .png()
+    .toFile(destinationPath)
 }
 
 function applyConfiguredBrandCasing(config: BrandKitConfig, value: string) {
@@ -154,6 +191,12 @@ async function discoverLogoGroups({
   const sourceDir = path.resolve(projectRoot, config.logos.sourceDir)
   const logoOutputDir = path.join(outputRoot, 'logos')
   const files = await readBrandAssetFiles(sourceDir)
+  const sourcePngStems = new Set(
+    files
+      .map((file) => toPosixPath(path.relative(sourceDir, file)))
+      .filter((file) => path.posix.extname(file).toLowerCase() === '.png')
+      .map(stripExtension),
+  )
   const groups = createEmptyLogoGroups(config.logos)
   const groupsByKey = new Map(groups.map((group) => [group.key, group]))
   const assetsByGroup = new Map<string, Map<string, BrandKitAsset>>()
@@ -166,6 +209,7 @@ async function discoverLogoGroups({
   for (const sourcePath of files) {
     const relativePath = path.relative(sourceDir, sourcePath)
     const normalizedRelativePath = toPosixPath(relativePath)
+    const extension = path.extname(sourcePath).toLowerCase()
     const groupConfig = groupAssetByConfig(
       normalizedRelativePath,
       config.logos.groups,
@@ -196,10 +240,33 @@ async function discoverLogoGroups({
     })
     const stem = getFileStem(relativePath)
     const existing = assets.get(stem)
-    const download = createDownload(publicUrl)
+    const downloads = [createDownload(publicUrl)]
+
+    if (extension === '.svg') {
+      const pngRelativePath = replaceExtension(normalizedRelativePath, '.png')
+
+      if (!sourcePngStems.has(stripExtension(normalizedRelativePath))) {
+        const pngDestinationPath = outputPathFromRelative(
+          logoOutputDir,
+          pngRelativePath,
+        )
+
+        await renderLogoPng(sourcePath, pngDestinationPath)
+        writtenFiles.push(pngDestinationPath)
+        downloads.push(
+          createDownload(
+            getPublicAssetPath({
+              assetBasePath,
+              outputSubdir: 'logos',
+              relativePath: pngRelativePath,
+            }),
+          ),
+        )
+      }
+    }
 
     if (existing) {
-      existing.downloads.push(download)
+      existing.downloads.push(...downloads)
       continue
     }
 
@@ -212,7 +279,7 @@ async function discoverLogoGroups({
         }) || stem,
       previewTone: inferPreviewTone(relativePath),
       previewUrl: publicUrl,
-      downloads: [download],
+      downloads,
     })
   }
 

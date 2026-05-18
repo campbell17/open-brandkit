@@ -42,7 +42,7 @@ Open BrandKit currently works best with:
 - A Next.js 14 or newer App Router site.
 - Tailwind CSS 3 or 4.
 - Logos and icons stored in your repo, usually under `public/logos`.
-- SVG or PNG brand assets.
+- SVG brand assets. PNG downloads are generated automatically during build.
 - A color source file in Markdown, JSON, CSV, or TypeScript config.
 - Vercel or any host that can serve a normal Next.js app.
 
@@ -84,6 +84,11 @@ site.
 
 Start with a folder of approved brand files. Clear filenames help Open BrandKit
 group things correctly.
+
+SVG files are the best source format. Open BrandKit copies the SVGs and generates
+matching PNG downloads during `brandkit build`. If you already have hand-tuned
+PNGs, you can put them in the same folder with the same filename stem and Open
+BrandKit will use those instead of generating replacements.
 
 Example:
 

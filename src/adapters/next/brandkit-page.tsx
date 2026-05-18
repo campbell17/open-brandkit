@@ -863,7 +863,7 @@ function AssetCard({
         <img
           src={asset.previewUrl}
           alt={asset.title}
-          className="max-h-28 w-auto max-w-full object-contain"
+          className="h-28 w-full object-contain"
           loading="lazy"
         />
       </button>
@@ -2953,13 +2953,13 @@ function Lightbox({
         <div className="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl">
           <div className="flex min-h-[60vh] items-center justify-center bg-[#f7f7f7] px-8 py-10 sm:px-12">
             <div
-              className="max-w-full overflow-auto rounded-md border border-neutral-300 p-4 shadow-sm"
+              className="flex h-[min(60vh,36rem)] w-full max-w-4xl items-center justify-center overflow-hidden rounded-md border border-neutral-300 p-6 shadow-sm"
               style={transparentPreviewStyle}
             >
               <img
                 src={lightboxDownload?.url ?? asset.previewUrl}
                 alt={asset.title}
-                className="block h-auto max-h-[70vh] w-auto max-w-full"
+                className="block h-full w-full object-contain"
               />
             </div>
           </div>
