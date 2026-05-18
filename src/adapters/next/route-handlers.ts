@@ -585,6 +585,12 @@ export function createBrandKitBannerPresetHandler(
   return {
     async POST(request: Request) {
       try {
+        if (isProduction()) {
+          return productionBlocked(
+            'Banner preset file updates are only available in local development.',
+          )
+        }
+
         const body = (await request.json()) as BrandKitBannerPresetRequest
         const currentManifest = await loadBrandKitManifest(options)
         const customBannerIds = getCustomBannerIds(currentManifest)

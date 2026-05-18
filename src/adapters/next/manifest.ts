@@ -19,10 +19,13 @@ export type BrandKitBannerControls = {
   alignments: { key: string; label: string }[]
   colors: BrandKitSocialBannersConfig['colors']
   markVariants: {
+    assetUrl?: string
     colorKeys?: string[]
+    colorAssetUrls?: Record<string, string>
     colorOptions?: BrandKitSocialBannersConfig['colors']
     key: string
     label: string
+    scale?: number
   }[]
   patterns: { key: string; label: string }[]
 }
@@ -34,6 +37,15 @@ export type BrandKitNextPageProps = {
 
 function stripSlashes(value: string) {
   return value.replace(/^\/+|\/+$/g, '')
+}
+
+function publicUrlFromAssetPath(assetPath: string) {
+  const normalized = assetPath.replace(/\\/g, '/')
+
+  if (normalized.startsWith('/')) return normalized
+  if (normalized.startsWith('public/')) return `/${normalized.slice('public/'.length)}`
+
+  return normalized
 }
 
 export function getBrandKitManifestPath(options: BrandKitNextAdapterOptions = {}) {
@@ -80,10 +92,18 @@ export function createBrandKitBannerControls(
     ],
     colors: normalizeColorLabels(config.socialBanners.colors) ?? [],
     markVariants: config.socialBanners.markVariants.map((variant) => ({
+      assetUrl: publicUrlFromAssetPath(variant.assetPath),
       colorKeys: variant.colorKeys ?? Object.keys(variant.colorAssets ?? {}),
+      colorAssetUrls: Object.fromEntries(
+        Object.entries(variant.colorAssets ?? {}).map(([key, assetPath]) => [
+          key,
+          publicUrlFromAssetPath(assetPath),
+        ]),
+      ),
       colorOptions: normalizeColorLabels(variant.colorOptions),
       key: variant.key,
       label: applyConfiguredCasing(variant.label),
+      scale: variant.scale,
     })),
     patterns: [
       { key: 'diagonal-sweep', label: 'Sweep' },

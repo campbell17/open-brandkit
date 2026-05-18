@@ -61,6 +61,11 @@ type BannerPresetState = {
   secondaryColor: string
 }
 
+type BannerPreviewOverride = {
+  assetId: string
+  url: string
+}
+
 type ColorOption = {
   color: string | null
   key: string
@@ -2241,17 +2246,299 @@ function BannerAlignmentGroup({
   )
 }
 
+function getBannerEdgeAlignedLeft({
+  alignment,
+  canvasWidth,
+  markWidth,
+}: {
+  alignment: string
+  canvasWidth: number
+  markWidth: number
+}) {
+  const edgeInset = Math.max(80, Math.round(canvasWidth * 0.027))
+
+  if (alignment === 'left') return edgeInset
+  if (alignment === 'right') return canvasWidth - markWidth - edgeInset
+
+  return Math.round(canvasWidth * 0.5 - markWidth / 2)
+}
+
+function bannerColorValue(
+  colors: BrandKitBannerControls['colors'],
+  key: string,
+  fallback: string,
+) {
+  return colors.find((color) => color.key === key)?.hex ?? fallback
+}
+
+function drawBannerPath({
+  accentColor,
+  context,
+  height,
+  pattern,
+  secondaryColor,
+  width,
+}: {
+  accentColor: string
+  context: CanvasRenderingContext2D
+  height: number
+  pattern: string
+  secondaryColor: string
+  width: number
+}) {
+  const overscan = Math.max(width, height)
+
+  context.save()
+
+  if (pattern === 'radial-glow') {
+    context.globalAlpha = 0.72
+    context.fillStyle = accentColor
+    context.beginPath()
+    context.arc(width * 0.74, height * 0.5, overscan * 0.42, 0, Math.PI * 2)
+    context.fill()
+
+    context.globalAlpha = 0.18
+    context.fillStyle = secondaryColor
+    context.beginPath()
+    context.arc(width * 0.12, height * 0.2, overscan * 0.24, 0, Math.PI * 2)
+    context.fill()
+
+    context.globalAlpha = 0.2
+    context.fillStyle = accentColor
+    context.beginPath()
+    context.moveTo(width * 0.02, height)
+    context.bezierCurveTo(
+      width * 0.28,
+      height * 0.35,
+      width * 0.54,
+      height * 0.82,
+      width,
+      height * 0.22,
+    )
+    context.lineTo(width, height)
+    context.closePath()
+    context.fill()
+    context.restore()
+    return
+  }
+
+  if (pattern === 'split-field') {
+    context.globalAlpha = 0.92
+    context.fillStyle = accentColor
+    context.beginPath()
+    context.moveTo(width * 0.52, 0)
+    context.lineTo(width, 0)
+    context.lineTo(width, height)
+    context.lineTo(width * 0.36, height)
+    context.closePath()
+    context.fill()
+
+    context.globalAlpha = 0.18
+    context.fillStyle = secondaryColor
+    context.beginPath()
+    context.moveTo(width * 0.7, 0)
+    context.lineTo(width, 0)
+    context.lineTo(width, height)
+    context.lineTo(width * 0.88, height)
+    context.closePath()
+    context.fill()
+
+    context.globalAlpha = 0.14
+    context.beginPath()
+    context.arc(width * 0.82, height * 0.5, overscan * 0.22, 0, Math.PI * 2)
+    context.fill()
+    context.restore()
+    return
+  }
+
+  if (pattern === 'wave') {
+    context.globalAlpha = 0.72
+    context.fillStyle = accentColor
+    context.beginPath()
+    context.moveTo(0, height * 0.66)
+    context.bezierCurveTo(
+      width * 0.24,
+      height * 0.28,
+      width * 0.46,
+      height * 0.96,
+      width * 0.72,
+      height * 0.4,
+    )
+    context.bezierCurveTo(
+      width * 0.98,
+      height * -0.16,
+      width * 0.92,
+      height * 0.22,
+      width,
+      height * 0.34,
+    )
+    context.lineTo(width, height)
+    context.lineTo(0, height)
+    context.closePath()
+    context.fill()
+
+    context.globalAlpha = 0.16
+    context.fillStyle = secondaryColor
+    context.beginPath()
+    context.moveTo(0, height * 0.78)
+    context.bezierCurveTo(
+      width * 0.28,
+      height * 0.42,
+      width * 0.42,
+      height * 1.05,
+      width * 0.76,
+      height * 0.56,
+    )
+    context.bezierCurveTo(
+      width * 1.1,
+      height * 0.07,
+      width * 0.95,
+      height * 0.44,
+      width,
+      height * 0.5,
+    )
+    context.lineTo(width, height)
+    context.lineTo(0, height)
+    context.closePath()
+    context.fill()
+    context.restore()
+    return
+  }
+
+  context.globalAlpha = 0.78
+  context.fillStyle = accentColor
+  context.beginPath()
+  context.moveTo(width * 0.58, 0)
+  context.lineTo(width, 0)
+  context.lineTo(width * 0.78, height)
+  context.lineTo(width * 0.28, height)
+  context.closePath()
+  context.fill()
+
+  context.globalAlpha = 0.16
+  context.fillStyle = secondaryColor
+  context.beginPath()
+  context.moveTo(width * 0.86, 0)
+  context.lineTo(width, 0)
+  context.lineTo(width, height)
+  context.lineTo(width * 0.68, height)
+  context.closePath()
+  context.fill()
+
+  context.globalAlpha = 0.18
+  context.fillStyle = accentColor
+  context.beginPath()
+  context.arc(width * 0.16, height * 0.18, overscan * 0.18, 0, Math.PI * 2)
+  context.fill()
+  context.restore()
+}
+
+async function renderBannerPreviewOverride({
+  asset,
+  controls,
+  state,
+}: {
+  asset: BrandKitBannerAsset
+  controls: BrandKitBannerControls
+  state: BannerPresetState
+}): Promise<BannerPreviewOverride> {
+  const variant =
+    controls.markVariants.find((item) => item.key === state.markVariant) ??
+    controls.markVariants[0]
+  const markUrl =
+    variant?.colorAssetUrls?.[state.markColor] ?? variant?.assetUrl ?? ''
+
+  if (!markUrl) throw new Error('Could not find the selected banner mark.')
+
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+
+  canvas.width = asset.width
+  canvas.height = asset.height
+
+  if (!context) throw new Error('Canvas is unavailable.')
+
+  const backgroundColor = bannerColorValue(
+    controls.colors,
+    state.backgroundColor,
+    '#0d2249',
+  )
+  const accentColor = bannerColorValue(controls.colors, state.markColor, '#4784de')
+  const secondaryColor = bannerColorValue(
+    controls.colors,
+    state.secondaryColor,
+    '#ffffff',
+  )
+  const gradient = context.createLinearGradient(0, 0, asset.width, asset.height)
+
+  gradient.addColorStop(0, backgroundColor)
+  gradient.addColorStop(1, accentColor)
+  context.fillStyle = gradient
+  context.globalAlpha = 1
+  context.fillRect(0, 0, asset.width, asset.height)
+  drawBannerPath({
+    accentColor,
+    context,
+    height: asset.height,
+    pattern: state.pattern,
+    secondaryColor,
+    width: asset.width,
+  })
+  context.globalAlpha = 0.08
+  context.fillStyle = backgroundColor
+  context.fillRect(0, 0, asset.width, asset.height)
+  context.globalAlpha = 1
+
+  const mark = await loadCanvasImage(markUrl)
+  const markScale = Math.min(Math.max(variant?.scale ?? 0.34, 0.08), 0.72)
+  const maxMarkWidth = asset.width * markScale
+  const maxMarkHeight = asset.height * 0.68
+  const naturalWidth = mark.naturalWidth || mark.width
+  const naturalHeight = mark.naturalHeight || mark.height
+  const scale = Math.min(maxMarkWidth / naturalWidth, maxMarkHeight / naturalHeight)
+  const markWidth = naturalWidth * scale
+  const markHeight = naturalHeight * scale
+  const left =
+    state.alignment === 'center'
+      ? Math.round(asset.width * 0.5 - markWidth / 2)
+      : getBannerEdgeAlignedLeft({
+          alignment: state.alignment,
+          canvasWidth: asset.width,
+          markWidth,
+        })
+  const top = Math.round(asset.height * 0.5 - markHeight / 2)
+
+  context.drawImage(
+    mark,
+    Math.min(Math.max(left, 0), asset.width - markWidth),
+    Math.min(Math.max(top, 0), asset.height - markHeight),
+    markWidth,
+    markHeight,
+  )
+
+  return {
+    assetId: asset.id,
+    url: canvas.toDataURL('image/png'),
+  }
+}
+
 function BannerPresetControls({
+  banners,
   controls,
   endpoint,
   onToast,
   onUpdated,
 }: {
+  banners: BrandKitBannerAsset[]
   controls: BrandKitBannerControls
   endpoint: string
   onToast: ShowToast
-  onUpdated: () => void
+  onUpdated: (overrides?: BannerPreviewOverride[]) => void
 }) {
+  const canRenderInBrowser = controls.markVariants.some(
+    (variant) => variant.assetUrl || Object.keys(variant.colorAssetUrls ?? {}).length,
+  )
+
   function getMarkColorOptions(markVariantKey: string) {
     const markVariant = controls.markVariants.find(
       (variant) => variant.key === markVariantKey,
@@ -2297,6 +2584,21 @@ function BannerPresetControls({
     setApplying(true)
 
     try {
+      if (process.env.NODE_ENV === 'production' && canRenderInBrowser) {
+        onUpdated(
+          await Promise.all(
+            banners.map((asset) =>
+              renderBannerPreviewOverride({
+                asset,
+                controls,
+                state: nextState,
+              }),
+            ),
+          ),
+        )
+        return
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2387,6 +2689,7 @@ function BannerCard({
   canUpload,
   endpoint,
   isCustom,
+  previewOverride,
   previewVersion,
   onCustomStateChange,
   onToast,
@@ -2399,14 +2702,20 @@ function BannerCard({
   onCustomStateChange: (assetId: string, isCustom: boolean) => void
   onToast: ShowToast
   onUpdated: () => void
+  previewOverride?: string
   previewVersion: number
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isReplacing, setReplacing] = useState(false)
   const [isResetting, setResetting] = useState(false)
-  const previewUrl = previewVersion
-    ? `${asset.previewUrl}?v=${previewVersion}`
-    : asset.previewUrl
+  const previewUrl =
+    previewOverride ??
+    (previewVersion ? `${asset.previewUrl}?v=${previewVersion}` : asset.previewUrl)
+  const downloads = asset.downloads.map((download) =>
+    previewOverride && download.format === 'PNG'
+      ? { ...download, url: previewOverride }
+      : download,
+  )
   const previewWidth = Math.round(asset.width * bannerPreviewScale)
 
   async function replaceBanner(file: File) {
@@ -2513,7 +2822,7 @@ function BannerCard({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {asset.downloads.map((download) => (
+          {downloads.map((download) => (
             <AssetDownloadButton
               key={`${asset.id}-${download.fileName}`}
               download={download}
@@ -2562,6 +2871,7 @@ function BannerGroup({
   customBannerIds,
   endpoints,
   group,
+  previewOverrides,
   previewVersion,
   onCustomStateChange,
   onToast,
@@ -2574,6 +2884,7 @@ function BannerGroup({
   onCustomStateChange: (assetId: string, isCustom: boolean) => void
   onToast: ShowToast
   onUpdated: () => void
+  previewOverrides: Record<string, string>
   previewVersion: number
 }) {
   return (
@@ -2597,6 +2908,7 @@ function BannerGroup({
             onCustomStateChange={onCustomStateChange}
             onToast={onToast}
             onUpdated={onUpdated}
+            previewOverride={previewOverrides[asset.id]}
             previewVersion={previewVersion}
           />
         ))}
@@ -2692,6 +3004,9 @@ export function BrandKitPage({
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const toastSequence = useRef(0)
   const [bannerPreviewVersion, setBannerPreviewVersion] = useState(0)
+  const [bannerPreviewOverrides, setBannerPreviewOverrides] = useState<
+    Record<string, string>
+  >({})
   const [customBannerIds, setCustomBannerIds] = useState(
     () =>
       new Set(
@@ -2716,6 +3031,10 @@ export function BrandKitPage({
         (total, group) => total + group.items.length,
         0,
       ),
+    [manifest.bannerGroups],
+  )
+  const bannerAssets = useMemo(
+    () => manifest.bannerGroups.flatMap((group) => group.items),
     [manifest.bannerGroups],
   )
   const totalAssetCount = assetCount + bannerAssetCount
@@ -2760,6 +3079,21 @@ export function BrandKitPage({
 
       return next
     })
+  }
+
+  function updateBannerPreviews(overrides?: BannerPreviewOverride[]) {
+    if (overrides?.length) {
+      setBannerPreviewOverrides((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          overrides.map((override) => [override.assetId, override.url]),
+        ),
+      }))
+      return
+    }
+
+    setBannerPreviewOverrides({})
+    setBannerPreviewVersion(Date.now())
   }
 
   function scrollToSection(
@@ -2988,10 +3322,11 @@ body > footer {
               </div>
               {canUseBannerActions && endpoints?.bannerPresets && bannerControls ? (
                 <BannerPresetControls
+                  banners={bannerAssets}
                   controls={bannerControls}
                   endpoint={endpoints.bannerPresets}
                   onToast={showToast}
-                  onUpdated={() => setBannerPreviewVersion(Date.now())}
+                  onUpdated={updateBannerPreviews}
                 />
               ) : null}
               <div className="mt-12 space-y-10">
@@ -3004,7 +3339,8 @@ body > footer {
                     key={group.key}
                     onCustomStateChange={updateCustomBannerState}
                     onToast={showToast}
-                    onUpdated={() => setBannerPreviewVersion(Date.now())}
+                    onUpdated={() => updateBannerPreviews()}
+                    previewOverrides={bannerPreviewOverrides}
                     previewVersion={bannerPreviewVersion}
                   />
                 ))}
