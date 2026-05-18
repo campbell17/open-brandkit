@@ -18,6 +18,7 @@ BrandKit itself as a standalone or competing product.
 
 Open BrandKit is currently early alpha software. It is published on npm, but the
 installer and generated page may still change quickly before a stable release.
+See [CHANGELOG.md](CHANGELOG.md) for recent release notes.
 
 ## What It Creates
 
