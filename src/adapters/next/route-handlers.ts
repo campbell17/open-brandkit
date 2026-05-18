@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server.js'
 import type sharp from 'sharp'
 
 import type { BrandKitConfig, BrandKitManifest } from '../../core/types.js'
+import { brandKitConfigSchema } from '../../core/config.js'
 import {
   type BrandKitNextAdapterOptions,
   getBrandKitManifestPath,
@@ -173,6 +174,10 @@ function isBrandKitConfig(value: unknown): value is BrandKitConfig {
       'logos' in value &&
       'colors' in value,
   )
+}
+
+function parseBrandKitConfig(config: unknown): BrandKitConfig {
+  return brandKitConfigSchema.parse(config) as BrandKitConfig
 }
 
 function decodePngDataUrl(dataUrl: unknown) {
@@ -354,9 +359,11 @@ export function createBrandKitDownloadHandler(
 }
 
 export function createBrandKitFaviconHandler(
-  config: BrandKitConfig,
+  config: unknown,
   options: BrandKitRouteHandlerOptions = {},
 ) {
+  const brandKitConfig = parseBrandKitConfig(config)
+
   return {
     async POST(request: Request) {
       try {
@@ -417,7 +424,10 @@ export function createBrandKitFaviconHandler(
             await writeFile(write.path, write.buffer)
           }),
         )
-        await writeFile(path.join(appDir, 'manifest.ts'), manifestSource(config))
+        await writeFile(
+          path.join(appDir, 'manifest.ts'),
+          manifestSource(brandKitConfig),
+        )
 
         return NextResponse.json({
           files: [
@@ -450,13 +460,15 @@ export function createBrandKitFaviconHandler(
 }
 
 export function createBrandKitBannerUploadHandler(
-  configOrOptions: BrandKitConfig | BrandKitRouteHandlerOptions = {},
+  configOrOptions: unknown = {},
   maybeOptions: BrandKitRouteHandlerOptions = {},
 ) {
-  const config = isBrandKitConfig(configOrOptions) ? configOrOptions : null
+  const config = isBrandKitConfig(configOrOptions)
+    ? parseBrandKitConfig(configOrOptions)
+    : null
   const options = isBrandKitConfig(configOrOptions)
     ? maybeOptions
-    : configOrOptions
+    : (configOrOptions as BrandKitRouteHandlerOptions)
 
   return {
     async POST(request: Request) {
@@ -579,9 +591,11 @@ export function createBrandKitBannerUploadHandler(
 }
 
 export function createBrandKitBannerPresetHandler(
-  config: BrandKitConfig,
+  config: unknown,
   options: BrandKitRouteHandlerOptions = {},
 ) {
+  const brandKitConfig = parseBrandKitConfig(config)
+
   return {
     async POST(request: Request) {
       try {
@@ -595,12 +609,15 @@ export function createBrandKitBannerPresetHandler(
         const currentManifest = await loadBrandKitManifest(options)
         const customBannerIds = getCustomBannerIds(currentManifest)
         const { buildBrandKit } = await import('../../core/build.js')
-        const result = await buildBrandKit(applyBannerPresetRequest(config, body), {
-          cwd: getCwd(options),
-          customBannerIds,
-        })
+        const result = await buildBrandKit(
+          applyBannerPresetRequest(brandKitConfig, body),
+          {
+            cwd: getCwd(options),
+            customBannerIds,
+          },
+        )
         const files = bannerWrittenFileNames(
-          config,
+          brandKitConfig,
           result.writtenFiles,
           options,
         )
@@ -622,13 +639,15 @@ export function createBrandKitBannerPresetHandler(
 }
 
 export function createBrandKitNextHandlers(
-  config: BrandKitConfig,
+  config: unknown,
   options: BrandKitRouteHandlerOptions = {},
 ) {
+  const brandKitConfig = parseBrandKitConfig(config)
+
   return {
-    bannerPresets: createBrandKitBannerPresetHandler(config, options),
-    bannerUpload: createBrandKitBannerUploadHandler(config, options),
+    bannerPresets: createBrandKitBannerPresetHandler(brandKitConfig, options),
+    bannerUpload: createBrandKitBannerUploadHandler(brandKitConfig, options),
     downloads: createBrandKitDownloadHandler(options),
-    favicon: createBrandKitFaviconHandler(config, options),
+    favicon: createBrandKitFaviconHandler(brandKitConfig, options),
   }
 }
