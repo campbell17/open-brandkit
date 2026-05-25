@@ -31,6 +31,7 @@ import {
   normalizeHexColor,
 } from './colors.js'
 import { generateStaticBrandKitPage } from './static-page.js'
+import { defaultBannerMarkColor } from './social-banners.js'
 import type {
   BrandKitAsset,
   BrandKitAssetDownload,
@@ -363,8 +364,10 @@ async function renderBannerGroups({
       bannerConfig.colors,
       thirdColor,
     )
+    const fallbackMarkColor = defaultBannerMarkColor(markVariant, bannerConfig.colors)
     const markAssetPath =
       (preset.markColor ? markVariant.colorAssets?.[preset.markColor] : undefined) ??
+      markVariant.colorAssets?.[fallbackMarkColor] ??
       markVariant.assetPath
 
     if (!isCustom) {

@@ -10,6 +10,11 @@ import { createJiti } from 'jiti'
 import { readBrandAssetFiles } from '../core/assets.js'
 import { buildBrandKit } from '../core/build.js'
 import { loadBrandKitColors } from '../core/colors.js'
+import {
+  compareBannerMarkColorOptions,
+  defaultBannerMarkColor,
+  orderBannerMarkColorOptions,
+} from '../core/social-banners.js'
 import type {
   BrandKitColor,
   BrandKitColorSource,
@@ -542,7 +547,7 @@ async function inferBannerMarkVariants(
     const choices = await Promise.all(
       markCandidates.map(async (candidate) => {
         const parts = variantPartsForAsset(candidate, commonParts)
-        const color = colorForParts(parts)
+        const color = colorForParts(parts) ?? (parts.length ? undefined : colors[0])
         const namedColorToken = Object.keys(namedMarkVariantColors).find((token) =>
           parts.includes(token),
         ) as keyof typeof namedMarkVariantColors | undefined
@@ -586,17 +591,20 @@ async function inferBannerMarkVariants(
 
     choices.sort(
       (left, right) =>
+        compareBannerMarkColorOptions(left.option, right.option) ||
         left.rank - right.rank ||
         left.option.label.localeCompare(right.option.label) ||
         left.assetPath.localeCompare(right.assetPath),
     )
 
     const colorAssets: Record<string, string> = {}
-    const colorOptions = choices.map((choice) => {
-      colorAssets[choice.option.key] = choice.assetPath
+    const colorOptions = orderBannerMarkColorOptions(
+      choices.map((choice) => choice.option),
+    )
 
-      return choice.option
-    })
+    for (const choice of choices) {
+      colorAssets[choice.option.key] = choice.assetPath
+    }
 
     return {
       assetPath: choices[0]?.assetPath ?? markCandidates[0],
@@ -695,29 +703,6 @@ async function inferBannerColors(
   ]
 }
 
-function isWhiteMarkColorOption(option: { hex?: string; key: string; label: string }) {
-  const text = `${option.key} ${option.label}`.toLowerCase()
-
-  return (
-    /(^|[^a-z0-9])(white|onblack|inverse|inverted)([^a-z0-9]|$)/.test(text) ||
-    /^#(?:fff|ffffff)$/i.test(option.hex ?? '')
-  )
-}
-
-function defaultSocialBannerMarkColor(
-  markVariant: BrandKitSocialBannersConfig['markVariants'][number] | undefined,
-) {
-  const colorOptions = markVariant?.colorOptions ?? []
-  const preferredOption = colorOptions.find(isWhiteMarkColorOption)
-
-  return (
-    preferredOption?.key ??
-    colorOptions[0]?.key ??
-    markVariant?.colorKeys?.[0] ??
-    'light'
-  )
-}
-
 async function collectInitAnswers(cwd: string, args: string[]) {
   const yes = hasFlag(args, '--yes') || hasFlag(args, '-y')
   const interactive = !yes && Boolean(process.stdin.isTTY && process.stdout.isTTY)
@@ -800,7 +785,10 @@ async function makeConfig(cwd: string, answers: InitAnswers): Promise<BrandKitCo
     answers.logoDir,
     bannerColors,
   )
-  const defaultMarkColor = defaultSocialBannerMarkColor(bannerMarkVariants[0])
+  const defaultMarkColor = defaultBannerMarkColor(
+    bannerMarkVariants[0],
+    bannerColors,
+  )
 
   return {
     brand: {

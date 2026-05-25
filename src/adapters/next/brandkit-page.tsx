@@ -15,6 +15,7 @@ import {
 import JSZip from 'jszip'
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -35,6 +36,10 @@ import type {
   BrandKitPrintColorGroup,
 } from '../../core/types.js'
 import type { BrandKitBannerControls } from './manifest.js'
+import {
+  defaultBannerMarkColor,
+  getBannerMarkColorOptions,
+} from '../../core/social-banners.js'
 
 export type BrandKitPageEndpoints = {
   bannerPresets?: string
@@ -2523,6 +2528,26 @@ async function renderBannerPreviewOverride({
   }
 }
 
+async function renderBannerPreviewOverrides({
+  banners,
+  controls,
+  state,
+}: {
+  banners: BrandKitBannerAsset[]
+  controls: BrandKitBannerControls
+  state: BannerPresetState
+}) {
+  return Promise.all(
+    banners.map((asset) =>
+      renderBannerPreviewOverride({
+        asset,
+        controls,
+        state,
+      }),
+    ),
+  )
+}
+
 function BannerPresetControls({
   banners,
   controls,
@@ -2545,32 +2570,15 @@ function BannerPresetControls({
       (variant) => variant.key === markVariantKey,
     )
 
-    if (markVariant?.colorOptions?.length) return markVariant.colorOptions
-    if (!markVariant?.colorKeys?.length) return controls.colors
-
-    const filtered = controls.colors.filter((color) =>
-      markVariant.colorKeys?.includes(color.key),
-    )
-
-    return filtered.length ? filtered : controls.colors
+    return getBannerMarkColorOptions(markVariant, controls.colors)
   }
 
   function getDefaultMarkColor(markVariantKey: string) {
-    const markColorOptions = getMarkColorOptions(markVariantKey)
-    const whiteOption = markColorOptions.find((option) => {
-      const text = `${option.key} ${option.label}`.toLowerCase()
-
-      return (
-        /(^|[^a-z0-9])(white|onblack|inverse|inverted)([^a-z0-9]|$)/.test(text) ||
-        /^#(?:fff|ffffff)$/i.test(option.hex)
-      )
-    })
-
-    return (
-      whiteOption?.key ??
-      markColorOptions[0]?.key ??
-      ''
+    const markVariant = controls.markVariants.find(
+      (variant) => variant.key === markVariantKey,
     )
+
+    return defaultBannerMarkColor(markVariant, controls.colors)
   }
 
   const defaultState = useMemo<BannerPresetState>(
@@ -2592,21 +2600,39 @@ function BannerPresetControls({
   const [isApplying, setApplying] = useState(false)
   const markColorOptions = getMarkColorOptions(state.markVariant)
 
+  useEffect(() => {
+    if (!canRenderInBrowser || !banners.length) return
+
+    let isCurrent = true
+
+    void renderBannerPreviewOverrides({
+      banners,
+      controls,
+      state: defaultState,
+    })
+      .then((overrides) => {
+        if (isCurrent) onUpdated(overrides)
+      })
+      .catch(() => {
+        // Keep the generated assets visible if an in-browser preview cannot render.
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [banners, canRenderInBrowser, controls, defaultState, onUpdated])
+
   async function apply(nextState: BannerPresetState) {
     setApplying(true)
 
     try {
       if (process.env.NODE_ENV === 'production' && canRenderInBrowser) {
         onUpdated(
-          await Promise.all(
-            banners.map((asset) =>
-              renderBannerPreviewOverride({
-                asset,
-                controls,
-                state: nextState,
-              }),
-            ),
-          ),
+          await renderBannerPreviewOverrides({
+            banners,
+            controls,
+            state: nextState,
+          }),
         )
         return
       }
@@ -3102,7 +3128,7 @@ export function BrandKitPage({
     })
   }
 
-  function updateBannerPreviews(overrides?: BannerPreviewOverride[]) {
+  const updateBannerPreviews = useCallback((overrides?: BannerPreviewOverride[]) => {
     if (overrides?.length) {
       setBannerPreviewOverrides((current) => ({
         ...current,
@@ -3115,7 +3141,7 @@ export function BrandKitPage({
 
     setBannerPreviewOverrides({})
     setBannerPreviewVersion(Date.now())
-  }
+  }, [])
 
   function scrollToSection(
     event: MouseEvent<HTMLAnchorElement>,
