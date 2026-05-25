@@ -1639,6 +1639,7 @@ function clientScript(manifest: BrandKitManifest) {
     const lightboxFile = document.getElementById('lightbox-file');
     const lightboxDownloads = document.getElementById('lightbox-downloads');
     const lightboxClose = document.getElementById('lightbox-close');
+    const lightboxPanel = lightbox?.querySelector('.lightbox-panel');
 
     function preferredDownload(asset) {
       return asset.downloads.find((download) => download.format === 'PNG') ||
@@ -1673,7 +1674,7 @@ function clientScript(manifest: BrandKitManifest) {
     });
     lightboxClose?.addEventListener('click', closeLightbox);
     lightbox?.addEventListener('mousedown', (event) => {
-      if (event.target === lightbox) closeLightbox();
+      if (event.target instanceof Node && !lightboxPanel?.contains(event.target)) closeLightbox();
     });
     window.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeLightbox();
@@ -1894,7 +1895,7 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
     <header class="header">
       <div class="wrap header-inner">
         <div>
-          <a class="brand-link" href="${escapeHtml(manifest.brand.homeUrl ?? '/')}">${escapeHtml(brandLabel)}</a>
+          <a class="brand-link" href="${escapeHtml(manifest.brand.homeUrl ?? '/')}">${escapeHtml(manifest.brand.name)}</a>
           <h1>Brand Kit</h1>
           <p class="copy">${escapeHtml(deterministicIntro)}</p>
           <nav class="nav" aria-label="Brand Kit sections">

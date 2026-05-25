@@ -430,8 +430,7 @@ function inferAvatarIconOptions(
 
       return counts
     }, new Map<string, number>())
-  const colorCandidates = [
-    ...colors.map((color, index) => ({
+  const brandColorCandidates = colors.map((color, index) => ({
       color: color.hex,
       key: `brand-${index}-${color.hex.toLowerCase()}`,
       label: color.name,
@@ -439,12 +438,13 @@ function inferAvatarIconOptions(
         (token) =>
           token.length > 2 && (brandColorTokenCounts.get(token) ?? 0) === 1,
       ),
-    })),
+    }))
+  const colorCandidates = [
     {
       color: '#ffffff',
       key: 'white',
       label: 'White',
-      tokens: ['white'],
+      tokens: ['white', 'onblack', 'inverse', 'inverted'],
     },
     {
       color: '#05070b',
@@ -452,6 +452,7 @@ function inferAvatarIconOptions(
       label: 'Black',
       tokens: ['black'],
     },
+    ...brandColorCandidates,
   ]
   const options: AvatarIconOption[] = []
   const seen = new Set<string>()
@@ -2555,8 +2556,19 @@ function BannerPresetControls({
   }
 
   function getDefaultMarkColor(markVariantKey: string) {
+    const markColorOptions = getMarkColorOptions(markVariantKey)
+    const whiteOption = markColorOptions.find((option) => {
+      const text = `${option.key} ${option.label}`.toLowerCase()
+
+      return (
+        /(^|[^a-z0-9])(white|onblack|inverse|inverted)([^a-z0-9]|$)/.test(text) ||
+        /^#(?:fff|ffffff)$/i.test(option.hex)
+      )
+    })
+
     return (
-      getMarkColorOptions(markVariantKey)[0]?.key ??
+      whiteOption?.key ??
+      markColorOptions[0]?.key ??
       ''
     )
   }
@@ -2634,7 +2646,7 @@ function BannerPresetControls({
       const nextMarkColorOptions = getMarkColorOptions(String(value))
 
       if (!nextMarkColorOptions.some((option) => option.key === nextState.markColor)) {
-        nextState.markColor = nextMarkColorOptions[0]?.key ?? ''
+        nextState.markColor = getDefaultMarkColor(String(value))
       }
     }
 
@@ -2925,6 +2937,7 @@ function Lightbox({
   onClose: () => void
 }) {
   const lightboxDownload = asset ? getLightboxDownload(asset) : null
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!asset) return
@@ -2945,12 +2958,20 @@ function Lightbox({
       aria-modal="true"
       className="fixed inset-0 z-[120] bg-black/70 p-4 sm:p-8"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (
+          event.target instanceof Node &&
+          !panelRef.current?.contains(event.target)
+        ) {
+          onClose()
+        }
       }}
       role="dialog"
     >
       <div className="flex min-h-full items-center justify-center">
-        <div className="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl">
+        <div
+          className="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl"
+          ref={panelRef}
+        >
           <div className="flex min-h-[60vh] items-center justify-center bg-[#f7f7f7] px-8 py-10 sm:px-12">
             <div
               className="flex h-[min(60vh,36rem)] w-full max-w-4xl items-center justify-center overflow-hidden rounded-md border border-neutral-300 p-6 shadow-sm"
@@ -3145,7 +3166,7 @@ body > footer {
               className="text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase transition-colors hover:text-neutral-950"
               href={homeUrl}
             >
-              {brandLabel}
+              {manifest.brand.name}
             </a>
             <h1 className="mt-3 font-display text-5xl font-medium text-slate-950">
               Brand Kit

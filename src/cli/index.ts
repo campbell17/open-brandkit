@@ -695,6 +695,29 @@ async function inferBannerColors(
   ]
 }
 
+function isWhiteMarkColorOption(option: { hex?: string; key: string; label: string }) {
+  const text = `${option.key} ${option.label}`.toLowerCase()
+
+  return (
+    /(^|[^a-z0-9])(white|onblack|inverse|inverted)([^a-z0-9]|$)/.test(text) ||
+    /^#(?:fff|ffffff)$/i.test(option.hex ?? '')
+  )
+}
+
+function defaultSocialBannerMarkColor(
+  markVariant: BrandKitSocialBannersConfig['markVariants'][number] | undefined,
+) {
+  const colorOptions = markVariant?.colorOptions ?? []
+  const preferredOption = colorOptions.find(isWhiteMarkColorOption)
+
+  return (
+    preferredOption?.key ??
+    colorOptions[0]?.key ??
+    markVariant?.colorKeys?.[0] ??
+    'light'
+  )
+}
+
 async function collectInitAnswers(cwd: string, args: string[]) {
   const yes = hasFlag(args, '--yes') || hasFlag(args, '-y')
   const interactive = !yes && Boolean(process.stdin.isTTY && process.stdout.isTTY)
@@ -777,10 +800,7 @@ async function makeConfig(cwd: string, answers: InitAnswers): Promise<BrandKitCo
     answers.logoDir,
     bannerColors,
   )
-  const defaultMarkColor =
-    bannerMarkVariants[0]?.colorOptions?.[0]?.key ??
-    bannerMarkVariants[0]?.colorKeys?.[0] ??
-    'light'
+  const defaultMarkColor = defaultSocialBannerMarkColor(bannerMarkVariants[0])
 
   return {
     brand: {
