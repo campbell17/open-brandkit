@@ -919,26 +919,11 @@ function DownloadAllButton({
   )
 }
 
-function DownloadPdfButton({ manifest }: { manifest: BrandKitManifest }) {
-  function openPrintablePage() {
-    const printWindow = window.open('', '_blank')
-
-    if (!printWindow) {
-      window.open(`${manifest.route}/print?print=1`, '_blank', 'noopener,noreferrer')
-      return
-    }
-
-    printWindow.opener = null
-    printWindow.document.write(
-      generatePrintableBrandKitPage(manifest, { autoPrint: true }),
-    )
-    printWindow.document.close()
-  }
-
+function DownloadPdfButton({ onOpen }: { onOpen: () => void }) {
   return (
     <button
       className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50"
-      onClick={openPrintablePage}
+      onClick={onOpen}
       type="button"
     >
       <FileText aria-hidden className="h-4 w-4" />
@@ -3632,6 +3617,104 @@ function Lightbox({
   )
 }
 
+function PrintPreviewModal({
+  manifest,
+  onClose,
+  open,
+}: {
+  manifest: BrandKitManifest
+  onClose: () => void
+  open: boolean
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [isLoaded, setLoaded] = useState(false)
+  const printableHtml = useMemo(
+    () => generatePrintableBrandKitPage(manifest, { showToolbar: false }),
+    [manifest],
+  )
+
+  useEffect(() => {
+    if (!open) return
+
+    setLoaded(false)
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose()
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [onClose, open])
+
+  if (!open) return null
+
+  function printPreview() {
+    iframeRef.current?.contentWindow?.focus()
+    iframeRef.current?.contentWindow?.print()
+  }
+
+  return (
+    <div
+      aria-modal="true"
+      className="fixed inset-0 z-[120] bg-black/70 p-4 sm:p-8"
+      onMouseDown={(event) => {
+        if (
+          event.target instanceof Node &&
+          !panelRef.current?.contains(event.target)
+        ) {
+          onClose()
+        }
+      }}
+      role="dialog"
+    >
+      <div className="flex min-h-full items-center justify-center">
+        <div
+          className="flex h-[min(90vh,58rem)] w-full max-w-7xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
+          ref={panelRef}
+        >
+          <div className="flex flex-col gap-3 border-b border-neutral-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900">
+                Printable Brand Kit
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Preview the print layout, then save it as a PDF.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+                onClick={onClose}
+                type="button"
+              >
+                Close
+              </button>
+              <button
+                className="inline-flex items-center gap-1 rounded-md border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!isLoaded}
+                onClick={printPreview}
+                type="button"
+              >
+                <FileText aria-hidden className="h-4 w-4" />
+                <span>Print / Save PDF</span>
+              </button>
+            </div>
+          </div>
+          <iframe
+            className="h-full w-full bg-slate-100"
+            onLoad={() => setLoaded(true)}
+            ref={iframeRef}
+            srcDoc={printableHtml}
+            title={`${manifest.brand.name} printable Brand Kit`}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function BrandKitPage({
   bannerControls,
   canUseDevActions = true,
@@ -3639,6 +3722,7 @@ export function BrandKitPage({
   manifest,
 }: BrandKitPageProps) {
   const [selectedAsset, setSelectedAsset] = useState<BrandKitAsset | null>(null)
+  const [isPrintPreviewOpen, setPrintPreviewOpen] = useState(false)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [showBackToTop, setShowBackToTop] = useState(false)
   const pageRef = useRef<HTMLDivElement>(null)
@@ -3930,7 +4014,7 @@ body > footer {
               <span className="text-sm text-slate-500">
                 {formatAssetCount(totalAssetCount)}
               </span>
-              <DownloadPdfButton manifest={manifest} />
+              <DownloadPdfButton onOpen={() => setPrintPreviewOpen(true)} />
               {manifest.downloads.allAssets ? (
                 <DownloadAllButton
                   fileName={allDownloadFileName}
@@ -4144,6 +4228,11 @@ body > footer {
         </button>
       ) : null}
       <Lightbox asset={selectedAsset} onClose={() => setSelectedAsset(null)} />
+      <PrintPreviewModal
+        manifest={manifest}
+        onClose={() => setPrintPreviewOpen(false)}
+        open={isPrintPreviewOpen}
+      />
       <ToastStack toasts={toasts} />
     </div>
   )

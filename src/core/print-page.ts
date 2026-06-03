@@ -9,6 +9,7 @@ import type {
 
 export type PrintableBrandKitPageOptions = {
   autoPrint?: boolean
+  showToolbar?: boolean
 }
 
 type Rgb = {
@@ -115,6 +116,24 @@ function findLogoAsset(manifest: BrandKitManifest) {
     ) ?? manifest.assetGroups[0]
 
   return preferredGroup?.items[0] ?? null
+}
+
+function findIconAsset(manifest: BrandKitManifest) {
+  const preferredGroup = manifest.assetGroups.find((group) =>
+    /icon|symbol|favicon|brandmark/i.test(`${group.key} ${group.label}`),
+  )
+
+  if (preferredGroup?.items[0]) return preferredGroup.items[0]
+
+  return (
+    manifest.assetGroups
+      .flatMap((group) => group.items)
+      .find((asset) =>
+        /icon|symbol|favicon|brandmark/i.test(
+          `${asset.id} ${asset.title} ${asset.previewUrl}`,
+        ),
+      ) ?? null
+  )
 }
 
 function logoPreviewToneClass(asset: BrandKitAsset) {
@@ -768,6 +787,7 @@ export function generatePrintableBrandKitPage(
   manifest: BrandKitManifest,
   options: PrintableBrandKitPageOptions = {},
 ) {
+  const faviconAsset = findIconAsset(manifest)
   const logoAsset = findLogoAsset(manifest)
   const logoSheets = chunk(manifest.assetGroups, 3).map((groupChunk, index) =>
     renderLogoSheet({ groupChunk, logoAsset, manifest, pageIndex: index }),
@@ -790,6 +810,7 @@ export function generatePrintableBrandKitPage(
         pageIndex: index,
       }),
   )
+  const showToolbar = options.showToolbar ?? true
 
   return `<!doctype html>
 <html lang="en">
@@ -797,15 +818,24 @@ export function generatePrintableBrandKitPage(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(manifest.brand.name)} Brand Kit PDF</title>
+    ${
+      faviconAsset
+        ? `<link rel="icon" href="${escapeHtml(faviconAsset.previewUrl)}" />`
+        : ''
+    }
     <style>${printPageStyles}</style>
   </head>
   <body>
-    <div class="print-toolbar">
+    ${
+      showToolbar
+        ? `<div class="print-toolbar">
       <div class="toolbar-inner">
         <p>Use your browser print dialog and choose Save as PDF.</p>
         <button class="button" id="print-action" type="button">Print / Save PDF</button>
       </div>
-    </div>
+    </div>`
+        : ''
+    }
     <main class="print-shell">
       ${logoSheets.join('')}
       ${brandColorSheets.join('')}

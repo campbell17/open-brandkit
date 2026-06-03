@@ -4,6 +4,11 @@ Open BrandKit is early alpha software, so releases are still moving quickly.
 This changelog focuses on what changed for people installing or updating the
 package.
 
+## 0.6.4
+
+- Open PDF now uses an in-page print preview modal.
+- Fixed the printable PDF page favicon.
+
 ## 0.6.3
 
 - Fixed a hydration warning caused by loading saved social banner preferences

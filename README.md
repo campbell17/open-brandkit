@@ -22,7 +22,12 @@ See the
 [full changelog](https://github.com/campbell17/open-brandkit/blob/main/CHANGELOG.md)
 for recent release notes.
 
-## What's New in 0.6.3
+## What's New in 0.6.4
+
+- Open PDF now uses an in-page print preview modal.
+- Fixed the printable PDF page favicon.
+
+## 0.6.3 Changes
 
 - Fixed hydration warnings when saved social banner preferences from an older
   install are still present in the browser.
@@ -33,20 +38,6 @@ for recent release notes.
 
 - Split social banner Options into separate Color and Align boxes so larger mark
   color sets have room while alignment stays compact.
-
-## 0.6.1 Changes
-
-- Added a Download PDF flow for a print-styled Brand Kit version with fixed
-  Letter landscape sheets.
-- The printable version focuses on approved logos, icons, web colors, and print
-  colors, with 3-column print shade pages and values visible on-page.
-- Removed project-specific guidance blocks from the printable PDF layout.
-- Social banner choices now persist across refreshes.
-- Added a back-to-top button for longer Brand Kit pages.
-- Reworked the banner lock as an "Allow public changes" toggle: local dev
-  controls stay usable, while locked public pages hide banner preset controls.
-- `brandkit build` now writes `public/brandkit/print.html`.
-- Fresh Next installs now include a `/brandkit/print` route.
 
 See the
 [full changelog](https://github.com/campbell17/open-brandkit/blob/main/CHANGELOG.md)
