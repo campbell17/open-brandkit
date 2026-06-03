@@ -78,7 +78,11 @@ export type BrandKitColorConfig = {
 
 export type BrandKitBannerPattern =
   | 'diagonal-sweep'
+  | 'corner-frame'
+  | 'horizon-lines'
+  | 'offset-stack'
   | 'radial-glow'
+  | 'ribbon-fold'
   | 'split-field'
   | 'wave'
 
@@ -121,9 +125,15 @@ export type BrandKitSocialBannerPreset = {
 export type BrandKitSocialBannersConfig = {
   outputDir?: string
   publicPath?: string
+  locked?: boolean
   markVariants: BrandKitBannerMarkVariantConfig[]
   colors: BrandKitBannerColorConfig[]
   presets: BrandKitSocialBannerPreset[]
+}
+
+export type BrandKitGeneratorMetadata = {
+  name: string
+  version: string
 }
 
 export type BrandKitConfig = {
@@ -177,9 +187,11 @@ export type BrandKitBannerGroup = {
 export type BrandKitManifest = {
   schemaVersion: 1
   generatedAt: string
+  generator?: BrandKitGeneratorMetadata
   route: string
   assetBasePath: string
   brand: BrandKitBrandConfig
+  bannerControlsLocked?: boolean
   assetGroups: BrandKitAssetGroup[]
   brandColors: BrandKitColor[]
   colorSections: BrandKitColorSection[]

@@ -46,7 +46,11 @@ const colorSectionSchema = z.object({
 
 const bannerPatternSchema = z.enum([
   'diagonal-sweep',
+  'corner-frame',
+  'horizon-lines',
+  'offset-stack',
   'radial-glow',
+  'ribbon-fold',
   'split-field',
   'wave',
 ])
@@ -120,6 +124,7 @@ export const brandKitConfigSchema = z.object({
     .object({
       outputDir: z.string().min(1).default('banners'),
       publicPath: z.string().min(1).optional(),
+      locked: z.boolean().default(false),
       markVariants: z.array(bannerMarkVariantSchema).min(1),
       colors: z.array(bannerColorSchema).min(1),
       presets: z.array(socialBannerPresetSchema).min(1),

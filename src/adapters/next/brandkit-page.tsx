@@ -1,10 +1,11 @@
 'use client'
 
 import {
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignStartVertical,
   ArrowDown,
+  ArrowLeft,
   Copy,
   Download,
   RotateCcw,
@@ -39,6 +40,7 @@ import type { BrandKitBannerControls } from './manifest.js'
 import {
   defaultBannerMarkColor,
   getBannerMarkColorOptions,
+  isWhiteBannerMarkColorOption,
 } from '../../core/social-banners.js'
 
 export type BrandKitPageEndpoints = {
@@ -58,6 +60,7 @@ type AvatarShape = 'square' | 'rounded' | 'round'
 type AvatarBorderThickness = 'none' | 'thin' | 'medium' | 'heavy'
 
 type BannerPresetState = {
+  accentColor: string
   alignment: string
   backgroundColor: string
   markColor: string
@@ -83,6 +86,14 @@ type AvatarIconOption = {
   color: string
   key: string
   label: string
+}
+
+type BannerBaseColorOption = {
+  accentColor: string
+  hex: string
+  key: string
+  label: string
+  secondaryColor: string
 }
 
 type BrandColorRows = {
@@ -132,6 +143,17 @@ const deterministicIntro =
 
 function getAssetDownloadHref(downloadUrl: string) {
   return downloadUrl
+}
+
+function fileNameFromUrl(url?: string) {
+  const pathName = url?.split('#')[0]?.split('?')[0]
+  const fileName = pathName?.split('/').filter(Boolean).pop()
+
+  return fileName?.includes('.') ? fileName : undefined
+}
+
+function npmPackageVersionUrl(packageName: string, version: string) {
+  return `https://www.npmjs.com/package/${encodeURIComponent(packageName)}/v/${encodeURIComponent(version)}`
 }
 
 function assetFileLabel(asset: BrandKitAsset) {
@@ -222,6 +244,41 @@ function normalizeOptionalHexColor(value?: string | null) {
 
 function normalizeHexColor(value: string) {
   return normalizeOptionalHexColor(value) ?? '#ffffff'
+}
+
+function hexToRgb(value: string) {
+  const hex = normalizeOptionalHexColor(value)
+
+  if (!hex) return null
+
+  return {
+    blue: Number.parseInt(hex.slice(5, 7), 16),
+    green: Number.parseInt(hex.slice(3, 5), 16),
+    red: Number.parseInt(hex.slice(1, 3), 16),
+  }
+}
+
+function rgbToHex({ blue, green, red }: { blue: number; green: number; red: number }) {
+  return `#${[red, green, blue]
+    .map((channel) =>
+      Math.round(Math.min(Math.max(channel, 0), 255))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`
+}
+
+function mixHexColor(source: string, target: string, amount: number) {
+  const sourceRgb = hexToRgb(source)
+  const targetRgb = hexToRgb(target)
+
+  if (!sourceRgb || !targetRgb) return normalizeHexColor(source)
+
+  return rgbToHex({
+    blue: sourceRgb.blue + (targetRgb.blue - sourceRgb.blue) * amount,
+    green: sourceRgb.green + (targetRgb.green - sourceRgb.green) * amount,
+    red: sourceRgb.red + (targetRgb.red - sourceRgb.red) * amount,
+  })
 }
 
 function tokenize(value: string) {
@@ -838,11 +895,19 @@ function AssetDownloadButton({
   )
 }
 
-function DownloadAllButton({ href, label = 'Download all' }: { href: string; label?: string }) {
+function DownloadAllButton({
+  fileName,
+  href,
+  label = 'Download all',
+}: {
+  fileName?: string
+  href: string
+  label?: string
+}) {
   return (
     <a
       className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50"
-      download
+      download={fileName ?? fileNameFromUrl(href)}
       href={href}
     >
       <DownloadIcon />
@@ -894,9 +959,11 @@ function AssetCard({
 
 function AssetGroup({
   downloadHref,
+  downloadFileName,
   group,
   onPreview,
 }: {
+  downloadFileName?: string
   downloadHref: string
   group: BrandKitAssetGroup
   onPreview: (asset: BrandKitAsset) => void
@@ -914,7 +981,7 @@ function AssetGroup({
           <span className="text-sm text-slate-500">
             {formatAssetCount(group.items.length)}
           </span>
-          <DownloadAllButton href={downloadHref} />
+          <DownloadAllButton fileName={downloadFileName} href={downloadHref} />
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1286,9 +1353,16 @@ function AvatarIconColorChip({
       type="button"
     >
       <span
-        className={`block aspect-square w-16 rounded-md border transition-colors ${selectionRing(selected)}`}
-        style={{ backgroundColor: normalizeHexColor(option.color) }}
-      />
+        className={`flex aspect-square w-16 items-center justify-center overflow-hidden rounded-md border p-2 transition-colors ${selectionRing(selected)}`}
+        style={transparentPreviewStyle}
+      >
+        <img
+          src={option.asset.previewUrl}
+          alt=""
+          className="block h-full w-full object-contain"
+          loading="lazy"
+        />
+      </span>
       <span className="w-16 text-xs leading-4 font-medium text-neutral-700">
         {option.label}
       </span>
@@ -1620,6 +1694,8 @@ function AvatarGenerator({
   const selectedBorder = getColorOption(borderOptions, border)
   const backgroundColor = selectedBackground?.color ?? null
   const borderColor = selectedBorder?.color ?? '#05070b'
+  const avatarAccentColor =
+    normalizeOptionalHexColor(findPrimaryColor(colors).hex) ?? '#3a89c0'
   const avatarFilePrefix = slugify(brandLabel) || 'brand'
   const borderThicknessPixels = getAvatarBorderThickness(
     borderThickness,
@@ -2065,10 +2141,11 @@ function AvatarGenerator({
               </span>
             </span>
             <input
-              className="w-full cursor-pointer accent-[#3a89c0]"
+              className="w-full cursor-pointer"
               max="34"
               min="0"
               onChange={(event) => setPadding(Number(event.currentTarget.value))}
+              style={{ accentColor: avatarAccentColor }}
               type="range"
               value={padding}
             />
@@ -2118,70 +2195,58 @@ function AvatarGenerator({
   )
 }
 
-function BannerPresetSelect({
-  disabled,
-  label,
-  onChange,
-  options,
-  value,
-}: {
-  disabled?: boolean
-  label: string
-  onChange: (value: string) => void
-  options: readonly { key: string; label: string }[]
-  value: string
-}) {
-  return (
-    <fieldset className="space-y-2">
-      <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
-        {label}
-      </legend>
-      <select
-        className="h-8 w-full cursor-pointer rounded-md border border-neutral-300 bg-white px-2.5 text-xs font-medium text-neutral-800 transition-colors hover:border-[#0d2249] hover:bg-slate-50 hover:text-slate-950 focus:border-[#0d2249] focus:ring-[#0d2249] disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        value={value}
-      >
-        {options.map((option) => (
-          <option key={option.key} value={option.key}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </fieldset>
+type BannerMarkVariantOption = BrandKitBannerControls['markVariants'][number] & {
+  previewBackgroundColor?: string
+  previewUrl?: string
+}
+
+function isBannerIconVariant(option: Pick<BannerMarkVariantOption, 'key' | 'label'>) {
+  return /(^|[^a-z0-9])(brandmark|icon|symbol)([^a-z0-9]|$)/i.test(
+    `${option.key} ${option.label}`,
   )
 }
 
-function BannerDotGroup({
+function bannerMarkPreviewBackgroundColor(
+  colorOption?: { hex: string; key: string; label: string },
+) {
+  return colorOption && isWhiteBannerMarkColorOption(colorOption)
+    ? '#d1d5db'
+    : '#ffffff'
+}
+
+function BannerMarkVariantGroup({
   disabled,
-  label,
   onChange,
   options,
   value,
 }: {
   disabled?: boolean
-  label: string
   onChange: (value: string) => void
-  options: readonly { hex: string; key: string; label: string }[]
+  options: readonly BannerMarkVariantOption[]
   value: string
 }) {
   return (
     <fieldset className="space-y-2">
       <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
-        {label}
+        Mark
       </legend>
-      <div className="inline-flex rounded-md border border-neutral-300 bg-white p-1">
+      <div className="flex flex-wrap items-start gap-4">
         {options.map((option) => {
           const selected = value === option.key
+          const isIcon = isBannerIconVariant(option)
+          const buttonClass = isIcon ? 'w-[80px]' : 'w-auto'
+          const previewClass = isIcon
+            ? 'h-[80px] w-[80px] p-1.5'
+            : 'h-[80px] w-auto p-1.5'
+          const imageClass = isIcon
+            ? 'block h-full w-full object-contain'
+            : 'block h-full w-auto object-contain'
 
           return (
             <button
-              aria-label={`${label}: ${option.label}`}
-              className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-all hover:bg-slate-100 hover:shadow-[inset_0_0_0_1px_#64748b] disabled:cursor-not-allowed disabled:opacity-40 ${
-                selected
-                  ? 'bg-slate-100 shadow-[inset_0_0_0_1px_#0d2249]'
-                  : 'bg-white'
-              }`}
+              aria-label={option.label}
+              aria-pressed={selected}
+              className={`group flex ${buttonClass} shrink-0 cursor-pointer items-center justify-center disabled:cursor-not-allowed disabled:opacity-50`}
               disabled={disabled}
               key={option.key}
               onClick={() => onChange(option.key)}
@@ -2189,10 +2254,22 @@ function BannerDotGroup({
               type="button"
             >
               <span
-                className="h-4 w-4 rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
-                style={{ backgroundColor: option.hex }}
-              />
-              <span className="sr-only">{option.label}</span>
+                className={`flex ${previewClass} shrink-0 items-center justify-center overflow-hidden rounded-md border transition-colors group-hover:border-slate-400 ${selectionRing(selected)}`}
+                style={{ backgroundColor: option.previewBackgroundColor ?? '#ffffff' }}
+              >
+                {option.previewUrl ? (
+                  <img
+                    alt=""
+                    className={imageClass}
+                    loading="lazy"
+                    src={option.previewUrl}
+                  />
+                ) : (
+                  <span className="text-xs font-semibold text-slate-500">
+                    {option.label.slice(0, 1)}
+                  </span>
+                )}
+              </span>
             </button>
           )
         })}
@@ -2201,13 +2278,173 @@ function BannerDotGroup({
   )
 }
 
-const bannerAlignmentIcons: Record<string, LucideIcon> = {
-  center: AlignCenter,
-  left: AlignLeft,
-  right: AlignRight,
+function bannerBaseColorOptions(
+  colors: BrandKitBannerControls['colors'],
+): BannerBaseColorOption[] {
+  const baseColors = colors.slice(0, 3)
+  const tones = [
+    {
+      labelPrefix: 'Dark',
+      mixAmount: 0.42,
+      target: '#05070b',
+    },
+    {
+      labelPrefix: 'Light',
+      mixAmount: 0.7,
+      target: '#ffffff',
+    },
+  ]
+
+  return tones.flatMap((tone) =>
+    baseColors.map((color, index) => {
+      const hex = mixHexColor(color.hex, tone.target, tone.mixAmount)
+      const secondaryColor =
+        baseColors[(index + 1) % baseColors.length]?.hex ?? color.hex
+
+      return {
+        accentColor: color.hex,
+        hex,
+        key: hex,
+        label: `${tone.labelPrefix} ${color.label}`,
+        secondaryColor,
+      }
+    }),
+  )
 }
 
-function BannerAlignmentGroup({
+const bannerAlignmentIcons: Record<string, LucideIcon> = {
+  center: AlignCenterVertical,
+  left: AlignStartVertical,
+  right: AlignEndVertical,
+}
+
+function BannerOptionsGroup({
+  alignmentOptions,
+  alignmentValue,
+  disabled,
+  markColorOptions,
+  markColorValue,
+  onAlignmentChange,
+  onMarkColorChange,
+}: {
+  alignmentOptions: readonly { key: string; label: string }[]
+  alignmentValue: string
+  disabled?: boolean
+  markColorOptions: readonly { hex: string; key: string; label: string }[]
+  markColorValue: string
+  onAlignmentChange: (value: string) => void
+  onMarkColorChange: (value: string) => void
+}) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
+        Options
+      </legend>
+      <div className="inline-grid grid-cols-3 gap-1.5 rounded-md border border-neutral-300 bg-white p-1.5">
+        {markColorOptions.map((option) => {
+          const selected = markColorValue === option.key
+
+          return (
+            <button
+              aria-label={`Logo color: ${option.label}`}
+              aria-pressed={selected}
+              className={`flex size-8 cursor-pointer items-center justify-center rounded-md transition-all hover:bg-slate-100 hover:shadow-[inset_0_0_0_1px_#64748b] disabled:cursor-not-allowed disabled:opacity-40 ${
+                selected
+                  ? 'bg-slate-100 shadow-[inset_0_0_0_1px_#0d2249]'
+                  : 'bg-white'
+              }`}
+              disabled={disabled}
+              key={`mark-color-${option.key}`}
+              onClick={() => onMarkColorChange(option.key)}
+              title={option.label}
+              type="button"
+            >
+              <span
+                className="size-5 rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
+                style={{ backgroundColor: option.hex }}
+              />
+              <span className="sr-only">Logo color: {option.label}</span>
+            </button>
+          )
+        })}
+        {alignmentOptions.map((option) => {
+          const Icon = bannerAlignmentIcons[option.key] ?? AlignCenterVertical
+          const selected = alignmentValue === option.key
+
+          return (
+            <button
+              aria-label={`Align ${option.label.toLowerCase()}`}
+              aria-pressed={selected}
+              className={`flex size-8 cursor-pointer items-center justify-center rounded-md transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                selected
+                  ? 'bg-[#0d2249] text-white hover:bg-slate-800'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 hover:shadow-[inset_0_0_0_1px_#64748b]'
+              }`}
+              disabled={disabled}
+              key={`alignment-${option.key}`}
+              onClick={() => onAlignmentChange(option.key)}
+              title={option.label}
+              type="button"
+            >
+              <Icon aria-hidden className="size-5" />
+              <span className="sr-only">Align {option.label.toLowerCase()}</span>
+            </button>
+          )
+        })}
+      </div>
+    </fieldset>
+  )
+}
+
+function BannerBaseColorGroup({
+  disabled,
+  onChange,
+  options,
+  value,
+}: {
+  disabled?: boolean
+  onChange: (value: string) => void
+  options: readonly BannerBaseColorOption[]
+  value: string
+}) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
+        Base
+      </legend>
+      <div className="inline-grid grid-cols-3 gap-1.5 rounded-md border border-neutral-300 bg-white p-1.5">
+        {options.map((option) => {
+          const selected = value === option.key || value === option.hex
+
+          return (
+            <button
+              aria-label={`Base color: ${option.label}`}
+              aria-pressed={selected}
+              className={`flex size-8 cursor-pointer items-center justify-center rounded-md transition-all hover:bg-slate-100 hover:shadow-[inset_0_0_0_1px_#64748b] disabled:cursor-not-allowed disabled:opacity-40 ${
+                selected
+                  ? 'bg-slate-100 shadow-[inset_0_0_0_1px_#0d2249]'
+                  : 'bg-white'
+              }`}
+              disabled={disabled}
+              key={`base-color-${option.key}-${option.hex}`}
+              onClick={() => onChange(option.key)}
+              title={option.label}
+              type="button"
+            >
+              <span
+                className="size-5 rounded-md shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
+                style={{ backgroundColor: option.hex }}
+              />
+              <span className="sr-only">Base color: {option.label}</span>
+            </button>
+          )
+        })}
+      </div>
+    </fieldset>
+  )
+}
+
+function BannerPatternGroup({
   disabled,
   onChange,
   options,
@@ -2221,20 +2458,20 @@ function BannerAlignmentGroup({
   return (
     <fieldset className="space-y-2">
       <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
-        Align
+        Pattern
       </legend>
-      <div className="inline-flex rounded-md border border-neutral-300 bg-white p-1">
-        {options.map((option) => {
-          const Icon = bannerAlignmentIcons[option.key] ?? AlignCenter
+      <div className="inline-grid grid-cols-3 gap-1.5 rounded-md border border-neutral-300 bg-white p-1.5">
+        {options.map((option, index) => {
           const selected = value === option.key
 
           return (
             <button
-              aria-label={`Align ${option.label.toLowerCase()}`}
-              className={`flex h-7 w-8 cursor-pointer items-center justify-center rounded-md transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+              aria-label={`Pattern: ${option.label}`}
+              aria-pressed={selected}
+              className={`flex size-8 cursor-pointer items-center justify-center rounded-md text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
                 selected
                   ? 'bg-[#0d2249] text-white hover:bg-slate-800'
-                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 hover:shadow-[inset_0_0_0_1px_#64748b]'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 hover:shadow-[inset_0_0_0_1px_#64748b]'
               }`}
               disabled={disabled}
               key={option.key}
@@ -2242,13 +2479,42 @@ function BannerAlignmentGroup({
               title={option.label}
               type="button"
             >
-              <Icon aria-hidden className="h-4 w-4" />
+              {index + 1}
               <span className="sr-only">{option.label}</span>
             </button>
           )
         })}
       </div>
     </fieldset>
+  )
+}
+
+function BannerLockToggle({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean
+  disabled?: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label
+      className={`inline-flex items-center gap-2 text-sm font-medium text-slate-700 ${
+        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+      }`}
+      title={disabled ? 'Banner lock changes are local-only.' : undefined}
+    >
+      <span>Lock banners</span>
+      <input
+        checked={checked}
+        className="peer sr-only"
+        disabled={disabled}
+        onChange={(event) => onChange(event.currentTarget.checked)}
+        type="checkbox"
+      />
+      <span className="relative h-6 w-11 rounded-full bg-slate-300 transition-colors peer-checked:bg-[#0d2249] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#3a89c0] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />
+    </label>
   )
 }
 
@@ -2274,6 +2540,10 @@ function bannerColorValue(
   key: string,
   fallback: string,
 ) {
+  const hex = normalizeOptionalHexColor(key)
+
+  if (hex) return hex
+
   return colors.find((color) => color.key === key)?.hex ?? fallback
 }
 
@@ -2302,13 +2572,11 @@ function drawBannerPath({
     context.beginPath()
     context.arc(width * 0.74, height * 0.5, overscan * 0.42, 0, Math.PI * 2)
     context.fill()
-
     context.globalAlpha = 0.18
     context.fillStyle = secondaryColor
     context.beginPath()
     context.arc(width * 0.12, height * 0.2, overscan * 0.24, 0, Math.PI * 2)
     context.fill()
-
     context.globalAlpha = 0.2
     context.fillStyle = accentColor
     context.beginPath()
@@ -2338,7 +2606,6 @@ function drawBannerPath({
     context.lineTo(width * 0.36, height)
     context.closePath()
     context.fill()
-
     context.globalAlpha = 0.18
     context.fillStyle = secondaryColor
     context.beginPath()
@@ -2348,10 +2615,137 @@ function drawBannerPath({
     context.lineTo(width * 0.88, height)
     context.closePath()
     context.fill()
-
     context.globalAlpha = 0.14
     context.beginPath()
     context.arc(width * 0.82, height * 0.5, overscan * 0.22, 0, Math.PI * 2)
+    context.fill()
+    context.restore()
+    return
+  }
+
+  if (pattern === 'corner-frame') {
+    context.globalAlpha = 0.62
+    context.fillStyle = accentColor
+    context.beginPath()
+    context.moveTo(0, 0)
+    context.lineTo(width * 0.44, 0)
+    context.lineTo(width * 0.22, height * 0.24)
+    context.lineTo(0, height * 0.24)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 0.72
+    context.beginPath()
+    context.moveTo(width, height)
+    context.lineTo(width * 0.52, height)
+    context.lineTo(width * 0.74, height * 0.72)
+    context.lineTo(width, height * 0.72)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 0.16
+    context.fillStyle = secondaryColor
+    context.beginPath()
+    context.moveTo(width * 0.84, 0)
+    context.lineTo(width, 0)
+    context.lineTo(width, height * 0.42)
+    context.lineTo(width * 0.7, height * 0.2)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 0.2
+    context.beginPath()
+    context.moveTo(0, height * 0.7)
+    context.lineTo(width * 0.18, height)
+    context.lineTo(0, height)
+    context.closePath()
+    context.fill()
+    context.restore()
+    return
+  }
+
+  if (pattern === 'horizon-lines') {
+    context.globalAlpha = 0.5
+    context.fillStyle = accentColor
+    context.fillRect(0, height * 0.58, width, height * 0.17)
+    context.globalAlpha = 0.16
+    context.fillStyle = secondaryColor
+    context.fillRect(0, height * 0.42, width, height * 0.06)
+    context.globalAlpha = 0.18
+    context.fillRect(0, height * 0.82, width, height * 0.06)
+    context.globalAlpha = 0.16
+    context.fillStyle = accentColor
+    context.fillRect(width * 0.58, 0, width * 0.14, height)
+    context.restore()
+    return
+  }
+
+  if (pattern === 'offset-stack') {
+    context.globalAlpha = 0.54
+    context.fillStyle = accentColor
+    context.beginPath()
+    context.moveTo(width * 0.48, 0)
+    context.lineTo(width, 0)
+    context.lineTo(width, height * 0.28)
+    context.lineTo(width * 0.4, height * 0.28)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 0.16
+    context.fillStyle = secondaryColor
+    context.beginPath()
+    context.moveTo(width * 0.58, height * 0.34)
+    context.lineTo(width, height * 0.34)
+    context.lineTo(width, height * 0.56)
+    context.lineTo(width * 0.5, height * 0.56)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 0.62
+    context.fillStyle = accentColor
+    context.beginPath()
+    context.moveTo(width * 0.38, height * 0.62)
+    context.lineTo(width, height * 0.62)
+    context.lineTo(width, height)
+    context.lineTo(width * 0.28, height)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 0.14
+    context.fillStyle = secondaryColor
+    context.fillRect(0, height * 0.12, width * 0.24, height * 0.3)
+    context.restore()
+    return
+  }
+
+  if (pattern === 'ribbon-fold') {
+    context.globalAlpha = 0.48
+    context.fillStyle = accentColor
+    context.beginPath()
+    context.moveTo(width * 0.18, 0)
+    context.lineTo(width * 0.52, 0)
+    context.lineTo(width * 0.38, height)
+    context.lineTo(width * 0.02, height)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 0.34
+    context.beginPath()
+    context.moveTo(width * 0.58, 0)
+    context.lineTo(width * 0.86, 0)
+    context.lineTo(width * 0.7, height)
+    context.lineTo(width * 0.42, height)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 0.16
+    context.fillStyle = secondaryColor
+    context.beginPath()
+    context.moveTo(width * 0.82, 0)
+    context.lineTo(width, 0)
+    context.lineTo(width, height)
+    context.lineTo(width * 0.72, height)
+    context.closePath()
+    context.fill()
+    context.globalAlpha = 0.12
+    context.beginPath()
+    context.moveTo(0, height * 0.76)
+    context.lineTo(width, height * 0.48)
+    context.lineTo(width, height)
+    context.lineTo(0, height)
+    context.closePath()
     context.fill()
     context.restore()
     return
@@ -2382,7 +2776,6 @@ function drawBannerPath({
     context.lineTo(0, height)
     context.closePath()
     context.fill()
-
     context.globalAlpha = 0.16
     context.fillStyle = secondaryColor
     context.beginPath()
@@ -2410,7 +2803,6 @@ function drawBannerPath({
     context.restore()
     return
   }
-
   context.globalAlpha = 0.78
   context.fillStyle = accentColor
   context.beginPath()
@@ -2420,7 +2812,6 @@ function drawBannerPath({
   context.lineTo(width * 0.28, height)
   context.closePath()
   context.fill()
-
   context.globalAlpha = 0.16
   context.fillStyle = secondaryColor
   context.beginPath()
@@ -2430,7 +2821,6 @@ function drawBannerPath({
   context.lineTo(width * 0.68, height)
   context.closePath()
   context.fill()
-
   context.globalAlpha = 0.18
   context.fillStyle = accentColor
   context.beginPath()
@@ -2469,28 +2859,32 @@ async function renderBannerPreviewOverride({
     state.backgroundColor,
     '#0d2249',
   )
-  const accentColor = bannerColorValue(controls.colors, state.markColor, '#4784de')
+  const accentColor = bannerColorValue(controls.colors, state.accentColor, '#4784de')
   const secondaryColor = bannerColorValue(
     controls.colors,
     state.secondaryColor,
     '#ffffff',
   )
   const gradient = context.createLinearGradient(0, 0, asset.width, asset.height)
+  const gradientAccentColor = mixHexColor(backgroundColor, accentColor, 0.22)
+  const patternAccentColor = mixHexColor(backgroundColor, accentColor, 0.36)
+  const patternSecondaryColor = mixHexColor(backgroundColor, secondaryColor, 0.28)
 
   gradient.addColorStop(0, backgroundColor)
-  gradient.addColorStop(1, accentColor)
+  gradient.addColorStop(0.62, backgroundColor)
+  gradient.addColorStop(1, gradientAccentColor)
   context.fillStyle = gradient
   context.globalAlpha = 1
   context.fillRect(0, 0, asset.width, asset.height)
   drawBannerPath({
-    accentColor,
+    accentColor: patternAccentColor,
     context,
     height: asset.height,
     pattern: state.pattern,
-    secondaryColor,
+    secondaryColor: patternSecondaryColor,
     width: asset.width,
   })
-  context.globalAlpha = 0.08
+  context.globalAlpha = 0.18
   context.fillStyle = backgroundColor
   context.fillRect(0, 0, asset.width, asset.height)
   context.globalAlpha = 1
@@ -2584,14 +2978,21 @@ function BannerPresetControls({
   const defaultState = useMemo<BannerPresetState>(
     () => {
       const markVariant = controls.markVariants[0]?.key ?? ''
+      const backgroundOptions = bannerBaseColorOptions(controls.colors)
+      const backgroundOption = backgroundOptions[0]
 
       return {
+        accentColor: backgroundOption?.accentColor ?? controls.colors[0]?.hex ?? '',
         alignment: 'center',
-        backgroundColor: controls.colors[0]?.key ?? '',
+        backgroundColor: backgroundOption?.key ?? controls.colors[0]?.key ?? '',
         markColor: getDefaultMarkColor(markVariant),
         markVariant,
         pattern: controls.patterns[0]?.key ?? 'diagonal-sweep',
-        secondaryColor: controls.colors[2]?.key ?? controls.colors[0]?.key ?? '',
+        secondaryColor:
+          backgroundOption?.secondaryColor ??
+          controls.colors[1]?.hex ??
+          controls.colors[0]?.hex ??
+          '',
       }
     },
     [controls],
@@ -2599,6 +3000,39 @@ function BannerPresetControls({
   const [state, setState] = useState(defaultState)
   const [isApplying, setApplying] = useState(false)
   const markColorOptions = getMarkColorOptions(state.markVariant)
+  const baseColorOptions = useMemo(
+    () => bannerBaseColorOptions(controls.colors),
+    [controls.colors],
+  )
+  const patternOptions = useMemo(
+    () =>
+      controls.patterns
+        .filter((pattern) => !['horizon-lines', 'wave'].includes(pattern.key))
+        .slice(0, 6),
+    [controls.patterns],
+  )
+  const markVariantOptions = controls.markVariants.map((variant) => {
+    const fallbackColor = getDefaultMarkColor(variant.key)
+    const variantColorOptions = getMarkColorOptions(variant.key)
+    const requestedColorOption = variantColorOptions.find(
+      (option) => option.key === state.markColor,
+    )
+    const fallbackColorOption = variantColorOptions.find(
+      (option) => option.key === fallbackColor,
+    )
+    const previewColorOption = variant.colorAssetUrls?.[state.markColor]
+      ? requestedColorOption
+      : fallbackColorOption
+
+    return {
+      ...variant,
+      previewBackgroundColor: bannerMarkPreviewBackgroundColor(previewColorOption),
+      previewUrl:
+        variant.colorAssetUrls?.[state.markColor] ??
+        variant.colorAssetUrls?.[fallbackColor] ??
+        variant.assetUrl,
+    }
+  })
 
   useEffect(() => {
     if (!canRenderInBrowser || !banners.length) return
@@ -2666,6 +3100,8 @@ function BannerPresetControls({
     key: Key,
     value: BannerPresetState[Key],
   ) {
+    if (state[key] === value) return
+
     const nextState = { ...state, [key]: value }
 
     if (key === 'markVariant') {
@@ -2676,47 +3112,53 @@ function BannerPresetControls({
       }
     }
 
+    if (key === 'backgroundColor') {
+      const selectedBaseColor = baseColorOptions.find(
+        (option) => option.key === value || option.hex === value,
+      )
+
+      if (selectedBaseColor) {
+        nextState.accentColor = selectedBaseColor.accentColor
+        nextState.secondaryColor = selectedBaseColor.secondaryColor
+      }
+    }
+
     setState(nextState)
     void apply(nextState)
   }
 
   return (
-    <div className="mt-6 w-full rounded-md border border-slate-200 bg-white p-3">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(9rem,1fr)_auto_auto_auto_minmax(9rem,1fr)] lg:items-start">
-        <BannerPresetSelect
+    <div className="mt-6 w-full rounded-md border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-center gap-5 min-[1180px]:justify-between">
+        <BannerMarkVariantGroup
           disabled={isApplying}
-          label="Mark"
           onChange={(value) => update('markVariant', value)}
-          options={controls.markVariants}
+          options={markVariantOptions}
           value={state.markVariant}
         />
-        <BannerDotGroup
-          disabled={isApplying}
-          label="Color"
-          onChange={(value) => update('markColor', value)}
-          options={markColorOptions}
-          value={state.markColor}
-        />
-        <BannerAlignmentGroup
-          disabled={isApplying}
-          onChange={(value) => update('alignment', value)}
-          options={controls.alignments}
-          value={state.alignment}
-        />
-        <BannerDotGroup
-          disabled={isApplying}
-          label="Base"
-          onChange={(value) => update('backgroundColor', value)}
-          options={controls.colors}
-          value={state.backgroundColor}
-        />
-        <BannerPresetSelect
-          disabled={isApplying}
-          label="Pattern"
-          onChange={(value) => update('pattern', value)}
-          options={controls.patterns}
-          value={state.pattern}
-        />
+        <div className="flex w-full flex-wrap items-start justify-center gap-4 min-[520px]:w-auto min-[520px]:flex-nowrap min-[1180px]:ml-auto min-[1180px]:justify-end">
+          <BannerOptionsGroup
+            alignmentOptions={controls.alignments}
+            alignmentValue={state.alignment}
+            disabled={isApplying}
+            markColorOptions={markColorOptions}
+            markColorValue={state.markColor}
+            onAlignmentChange={(value) => update('alignment', value)}
+            onMarkColorChange={(value) => update('markColor', value)}
+          />
+          <BannerBaseColorGroup
+            disabled={isApplying}
+            onChange={(value) => update('backgroundColor', value)}
+            options={baseColorOptions}
+            value={state.backgroundColor}
+          />
+          <BannerPatternGroup
+            disabled={isApplying}
+            onChange={(value) => update('pattern', value)}
+            options={patternOptions}
+            value={state.pattern}
+          />
+        </div>
       </div>
     </div>
   )
@@ -3062,6 +3504,10 @@ export function BrandKitPage({
         ),
       ),
   )
+  const [bannerControlsLocked, setBannerControlsLocked] = useState(
+    () => Boolean(manifest.bannerControlsLocked) || Boolean(bannerControls?.locked),
+  )
+  const [isUpdatingBannerLock, setUpdatingBannerLock] = useState(false)
   const avatarAssets = useMemo(
     () => findAvatarAssets(manifest.assetGroups),
     [manifest.assetGroups],
@@ -3096,13 +3542,29 @@ export function BrandKitPage({
   const currentYear = new Date().getFullYear()
   const brandLabel = manifest.brand.shortName ?? manifest.brand.name
   const homeUrl = manifest.brand.homeUrl ?? '/'
+  const generatorVersion = manifest.generator?.version
+  const generatorPackageName = manifest.generator?.name || 'open-brandkit'
+  const generatorVersionLabel = generatorVersion ? `v${generatorVersion}` : null
+  const generatorVersionHref = generatorVersion
+    ? npmPackageVersionUrl(generatorPackageName, generatorVersion)
+    : null
   const allDownloadHref = `${manifest.route}/download/all`
   const bannerDownloadHref = `${manifest.route}/download/banners`
+  const allDownloadFileName = fileNameFromUrl(manifest.downloads.allAssets)
+  const bannerDownloadFileName = fileNameFromUrl(manifest.downloads.bannerAssets)
   const canInstallFavicons =
     canUseDevActions && process.env.NODE_ENV !== 'production'
-  const canUseBannerActions = canUseDevActions
+  const canToggleBannerLock =
+    canUseDevActions && Boolean(endpoints?.bannerUpload)
+  const canUseBannerActions = canUseDevActions && !bannerControlsLocked
   const canUseCustomBannerUploads =
-    canUseDevActions && process.env.NODE_ENV !== 'production'
+    canUseDevActions && !bannerControlsLocked && process.env.NODE_ENV !== 'production'
+
+  useEffect(() => {
+    setBannerControlsLocked(
+      Boolean(manifest.bannerControlsLocked) || Boolean(bannerControls?.locked),
+    )
+  }, [bannerControls?.locked, manifest.bannerControlsLocked])
 
   function showToast(message: string, tone: ToastTone = 'success') {
     const id = Date.now() + toastSequence.current
@@ -3142,6 +3604,42 @@ export function BrandKitPage({
     setBannerPreviewOverrides({})
     setBannerPreviewVersion(Date.now())
   }, [])
+
+  async function updateBannerLock(locked: boolean) {
+    if (!endpoints?.bannerUpload) return
+
+    setUpdatingBannerLock(true)
+
+    try {
+      const response = await fetch(endpoints.bannerUpload, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-lock', locked }),
+      })
+      const result = (await response.json()) as {
+        error?: string
+        locked?: boolean
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error ?? 'Could not update banner lock.')
+      }
+
+      setBannerControlsLocked(result.locked ?? locked)
+      showToast(locked ? 'Banner controls locked.' : 'Banner controls unlocked.')
+    } catch (error) {
+      onBannerLockError(error)
+    } finally {
+      setUpdatingBannerLock(false)
+    }
+  }
+
+  function onBannerLockError(error: unknown) {
+    showToast(
+      error instanceof Error ? error.message : 'Could not update banner lock.',
+      'error',
+    )
+  }
 
   function scrollToSection(
     event: MouseEvent<HTMLAnchorElement>,
@@ -3189,14 +3687,27 @@ body > footer {
           <div className="grid gap-10 lg:grid-cols-[1fr_360px] lg:items-center">
           <div>
             <a
-              className="text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase transition-colors hover:text-neutral-950"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase transition-colors hover:text-neutral-950"
               href={homeUrl}
             >
-              {manifest.brand.name}
+              <ArrowLeft aria-hidden className="h-3.5 w-3.5 shrink-0" />
+              <span>{manifest.brand.name}</span>
             </a>
-            <h1 className="mt-3 font-display text-5xl font-medium text-slate-950">
-              Brand Kit
-            </h1>
+            <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="font-display text-5xl font-medium text-slate-950">
+                Brand Kit
+              </h1>
+              {generatorVersionLabel && generatorVersionHref ? (
+                <a
+                  className="text-sm font-semibold text-slate-500 underline-offset-4 transition-colors hover:text-slate-950 hover:underline"
+                  href={generatorVersionHref}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {generatorVersionLabel}
+                </a>
+              ) : null}
+            </div>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
               {deterministicIntro}
             </p>
@@ -3234,7 +3745,10 @@ body > footer {
                 {formatAssetCount(totalAssetCount)}
               </span>
               {manifest.downloads.allAssets ? (
-                <DownloadAllButton href={allDownloadHref} />
+                <DownloadAllButton
+                  fileName={allDownloadFileName}
+                  href={allDownloadHref}
+                />
               ) : null}
             </nav>
           </div>
@@ -3267,6 +3781,9 @@ body > footer {
             <div className="mt-10 space-y-12">
               {manifest.assetGroups.map((group) => (
                 <AssetGroup
+                  downloadFileName={fileNameFromUrl(
+                    manifest.downloads.assetGroups?.[group.key],
+                  )}
                   downloadHref={`${manifest.route}/download/${group.key}`}
                   group={group}
                   key={group.key}
@@ -3359,11 +3876,23 @@ body > footer {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
+                  {canToggleBannerLock ? (
+                    <BannerLockToggle
+                      checked={bannerControlsLocked}
+                      disabled={
+                        isUpdatingBannerLock || process.env.NODE_ENV === 'production'
+                      }
+                      onChange={(locked) => void updateBannerLock(locked)}
+                    />
+                  ) : null}
                   <span className="text-sm text-slate-500">
                     {formatAssetCount(bannerAssetCount)}
                   </span>
                   {manifest.downloads.bannerAssets ? (
-                    <DownloadAllButton href={bannerDownloadHref} />
+                    <DownloadAllButton
+                      fileName={bannerDownloadFileName}
+                      href={bannerDownloadHref}
+                    />
                   ) : null}
                 </div>
               </div>

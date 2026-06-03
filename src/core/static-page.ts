@@ -20,6 +20,17 @@ function escapeJsonForHtml(value: unknown) {
   return JSON.stringify(value).replaceAll('<', '\\u003c')
 }
 
+function fileNameFromUrl(url?: string) {
+  const pathName = url?.split('#')[0]?.split('?')[0]
+  const fileName = pathName?.split('/').filter(Boolean).pop()
+
+  return fileName?.includes('.') ? fileName : undefined
+}
+
+function npmPackageVersionUrl(packageName: string, version: string) {
+  return `https://www.npmjs.com/package/${encodeURIComponent(packageName)}/v/${encodeURIComponent(version)}`
+}
+
 const deterministicIntro =
   'Approved marks, avatar-ready presets, social profile assets, and the current color system.'
 
@@ -37,6 +48,7 @@ const pageStyles = `
   --dark: #2b333f;
   --dark-hover: #1d232b;
   --favicon: #0d2249;
+  --brand-primary: #0d2249;
 }
 * { box-sizing: border-box; }
 body {
@@ -75,8 +87,24 @@ a { color: inherit; }
   text-transform: uppercase;
 }
 .brand-link:hover { color: #0a0a0a; }
+.brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.brand-link .icon {
+  width: 14px;
+  height: 14px;
+}
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-top: 12px;
+}
 h1 {
-  margin: 12px 0 0;
+  margin: 0;
   color: var(--ink);
   font-size: 48px;
   font-weight: 500;
@@ -90,6 +118,15 @@ h1 {
   font-size: 16px;
   line-height: 1.75;
 }
+.version-label {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+.version-label:hover { color: var(--ink); text-decoration: underline; }
 .nav,
 .button-row,
 .group-actions {
@@ -506,7 +543,7 @@ h1 {
 .avatar-range input {
   width: 100%;
   cursor: pointer;
-  accent-color: #2563eb;
+  accent-color: var(--brand-primary);
 }
 .custom-color-label {
   display: flex;
@@ -983,6 +1020,7 @@ function lucideIcon(name: string, className = 'icon') {
     'align-right':
       '<path d="M21 5H3" /><path d="M21 12H9" /><path d="M21 19H7" />',
     'arrow-down': '<path d="M12 5v14" /><path d="m19 12-7 7-7-7" />',
+    'arrow-left': '<path d="m12 19-7-7 7-7" /><path d="M19 12H5" />',
     copy:
       '<rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />',
     download:
@@ -1010,6 +1048,8 @@ function renderDownloadButtons(downloads: BrandKitAsset['downloads']) {
 }
 
 function renderAssetGroup(group: BrandKitAssetGroup, downloadUrl: string) {
+  const downloadFileName = fileNameFromUrl(downloadUrl)
+
   return `
     <section class="group">
       <div class="group-header">
@@ -1019,7 +1059,7 @@ function renderAssetGroup(group: BrandKitAssetGroup, downloadUrl: string) {
         </div>
         <div class="group-actions">
           <span class="asset-count">${group.items.length} ${group.items.length === 1 ? 'asset' : 'assets'} available</span>
-          <a class="button" href="${escapeHtml(downloadUrl)}" download>
+          <a class="button" href="${escapeHtml(downloadUrl)}" download="${escapeHtml(downloadFileName ?? '')}">
             ${lucideIcon('download')}
             <span>Download all</span>
           </a>
@@ -1244,7 +1284,9 @@ function renderAvatarGenerator(manifest: BrandKitManifest) {
                 .map(
                   (option, index) => `
                     <button class="chip ${index === 0 ? 'is-selected' : ''}" type="button" data-avatar-icon="${escapeHtml(option.asset.previewUrl)}">
-                      <span class="chip-preview" style="background-color:${escapeHtml(option.color)}"></span>
+                      <span class="chip-preview checker">
+                        <img src="${escapeHtml(option.asset.previewUrl)}" alt="" loading="lazy" />
+                      </span>
                       <span class="chip-label">${escapeHtml(option.label)}</span>
                     </button>
                   `,
@@ -1358,7 +1400,7 @@ function renderAvatarGenerator(manifest: BrandKitManifest) {
           </span>
           <label class="avatar-range">
             <span>Icon padding</span>
-            <input type="range" min="0" max="34" value="18" id="avatar-padding" />
+            <input type="range" min="0" max="34" value="18" id="avatar-padding" style="accent-color:${escapeHtml(findPrimaryColor(manifest.brandColors).hex)}" />
           </label>
           <button class="button button-favicon" type="button" id="download-avatar">${lucideIcon('download')}<span>Download PNG (1024px)</span></button>
           <button class="button" type="button" id="download-favicons">${lucideIcon('download')}<span>Download favicon PNGs</span></button>
@@ -1569,7 +1611,7 @@ function renderBanners(manifest: BrandKitManifest) {
             <span class="asset-count">${bannerAssetCount} ${bannerAssetCount === 1 ? 'asset' : 'assets'} available</span>
             ${
               manifest.downloads.bannerAssets
-                ? `<a class="button" href="${escapeHtml(manifest.downloads.bannerAssets)}" download>${lucideIcon('download')}<span>Download all</span></a>`
+                ? `<a class="button" href="${escapeHtml(manifest.downloads.bannerAssets)}" download="${escapeHtml(fileNameFromUrl(manifest.downloads.bannerAssets) ?? '')}">${lucideIcon('download')}<span>Download all</span></a>`
                 : ''
             }
           </div>
@@ -1880,7 +1922,13 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
     0,
   )
   const totalAssetCount = assetCount + bannerAssetCount
-  const brandLabel = manifest.brand.shortName ?? manifest.brand.name
+  const primaryColor = findPrimaryColor(manifest.brandColors).hex
+  const generatorVersion = manifest.generator?.version
+  const generatorPackageName = manifest.generator?.name || 'open-brandkit'
+  const generatorVersionLabel = generatorVersion ? `v${generatorVersion}` : ''
+  const generatorVersionHref = generatorVersion
+    ? npmPackageVersionUrl(generatorPackageName, generatorVersion)
+    : ''
 
   return `<!doctype html>
 <html lang="en">
@@ -1891,19 +1939,26 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
     <meta name="description" content="${escapeHtml(manifest.brand.description ?? deterministicIntro)}" />
     <style>${pageStyles}</style>
   </head>
-  <body>
+  <body style="--brand-primary:${escapeHtml(primaryColor)}">
     <header class="header">
       <div class="wrap header-inner">
         <div>
-          <a class="brand-link" href="${escapeHtml(manifest.brand.homeUrl ?? '/')}">${escapeHtml(manifest.brand.name)}</a>
-          <h1>Brand Kit</h1>
+          <a class="brand-link" href="${escapeHtml(manifest.brand.homeUrl ?? '/')}">${lucideIcon('arrow-left')}<span>${escapeHtml(manifest.brand.name)}</span></a>
+          <div class="title-row">
+            <h1>Brand Kit</h1>
+            ${
+              generatorVersionLabel && generatorVersionHref
+                ? `<a class="version-label" href="${escapeHtml(generatorVersionHref)}" target="_blank" rel="noreferrer">${escapeHtml(generatorVersionLabel)}</a>`
+                : ''
+            }
+          </div>
           <p class="copy">${escapeHtml(deterministicIntro)}</p>
           <nav class="nav" aria-label="Brand Kit sections">
             <a class="nav-link" href="#logos">${lucideIcon('arrow-down', 'nav-arrow')}<span>Logos</span></a>
             <a class="nav-link" href="#colors">${lucideIcon('arrow-down', 'nav-arrow')}<span>Colors</span></a>
             ${manifest.bannerGroups.length ? `<a class="nav-link" href="#banners">${lucideIcon('arrow-down', 'nav-arrow')}<span>Banners</span></a>` : ''}
             <span class="asset-count">${totalAssetCount} ${totalAssetCount === 1 ? 'asset' : 'assets'} available</span>
-            ${manifest.downloads.allAssets ? `<a class="button" href="${escapeHtml(manifest.downloads.allAssets)}" download>${lucideIcon('download')}<span>Download all</span></a>` : ''}
+            ${manifest.downloads.allAssets ? `<a class="button" href="${escapeHtml(manifest.downloads.allAssets)}" download="${escapeHtml(fileNameFromUrl(manifest.downloads.allAssets) ?? '')}">${lucideIcon('download')}<span>Download all</span></a>` : ''}
           </nav>
         </div>
         ${

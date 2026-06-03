@@ -54,6 +54,22 @@ function getSharp(): typeof sharp {
   return requireFromHere(sharpPackageName) as typeof sharp
 }
 
+function getGeneratorMetadata() {
+  try {
+    const ownPackage = requireFromHere('../../package.json') as {
+      name?: string
+      version?: string
+    }
+
+    return {
+      name: ownPackage.name ?? 'open-brandkit',
+      version: ownPackage.version ?? 'unknown',
+    }
+  } catch {
+    return { name: 'open-brandkit', version: 'unknown' }
+  }
+}
+
 export type BuildBrandKitOptions = {
   cwd?: string
   customBannerIds?: readonly string[]
@@ -107,6 +123,55 @@ function resolveColor(
   if (hex) return hex
 
   return colors.find((color) => color.key === value)?.hex ?? fallback
+}
+
+function hexToRgb(value: string) {
+  const hex = normalizeHexColor(value) ?? '#000000'
+
+  return {
+    blue: Number.parseInt(hex.slice(5, 7), 16),
+    green: Number.parseInt(hex.slice(3, 5), 16),
+    red: Number.parseInt(hex.slice(1, 3), 16),
+  }
+}
+
+function rgbToHex({ blue, green, red }: { blue: number; green: number; red: number }) {
+  return `#${[red, green, blue]
+    .map((channel) =>
+      Math.round(Math.min(Math.max(channel, 0), 255))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`
+}
+
+function mixHexColor(source: string, target: string, amount: number) {
+  const sourceRgb = hexToRgb(source)
+  const targetRgb = hexToRgb(target)
+
+  return rgbToHex({
+    blue: sourceRgb.blue + (targetRgb.blue - sourceRgb.blue) * amount,
+    green: sourceRgb.green + (targetRgb.green - sourceRgb.green) * amount,
+    red: sourceRgb.red + (targetRgb.red - sourceRgb.red) * amount,
+  })
+}
+
+function resolveBannerBaseColor(
+  value: string | undefined,
+  colors: BrandKitSocialBannersConfig['colors'],
+  fallback: string,
+) {
+  if (value) {
+    const hex = normalizeHexColor(value)
+
+    if (hex) return hex
+  }
+
+  const baseColor = value
+    ? colors.find((color) => color.key === value)?.hex
+    : undefined
+
+  return mixHexColor(baseColor ?? fallback, '#05070b', 0.42)
 }
 
 function createDownload(publicUrl: string): BrandKitAssetDownload {
@@ -349,7 +414,7 @@ async function renderBannerGroups({
     const outputPath = path.join(bannerOutputDir, fileName)
     const publicUrl = joinPublicUrl(publicPath, fileName)
     const isCustom = customBannerIds.has(preset.key)
-    const backgroundColor = resolveColor(
+    const backgroundColor = resolveBannerBaseColor(
       preset.backgroundColor,
       bannerConfig.colors,
       firstColor,
@@ -610,9 +675,11 @@ export async function buildBrandKit(
   const manifest = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
+    generator: getGeneratorMetadata(),
     route,
     assetBasePath,
     brand: config.brand,
+    bannerControlsLocked: config.socialBanners?.locked ?? false,
     assetGroups: logoResult.groups,
     brandColors,
     colorSections,

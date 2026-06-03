@@ -18,7 +18,26 @@ BrandKit itself as a standalone or competing product.
 
 Open BrandKit is currently early alpha software. It is published on npm, but the
 installer and generated page may still change quickly before a stable release.
-See [CHANGELOG.md](CHANGELOG.md) for recent release notes.
+See the
+[full changelog](https://github.com/campbell17/open-brandkit/blob/main/CHANGELOG.md)
+for recent release notes.
+
+## What's New in 0.6.0
+
+- Added a visible social banner lock toggle for local admins/designers.
+- Improved banner controls with mark thumbnails, compact Options/Base/Pattern
+  swatches, numbered pattern buttons, and better responsive wrapping.
+- Added six social banner pattern choices: Sweep, Corner, Stack, Glow, Ribbon,
+  and Split.
+- Avatar icon swatches now show the actual approved icon artwork, and avatar
+  sliders use the primary brand color.
+- The BrandKit masthead now shows a back affordance and links the package
+  version to npm.
+- Download-all buttons now use explicit zip filenames.
+
+See the
+[full changelog](https://github.com/campbell17/open-brandkit/blob/main/CHANGELOG.md)
+for earlier releases.
 
 ## What It Creates
 
@@ -80,6 +99,11 @@ The social banner preset controls can run on production when you wire the Next
 routes. Custom banner uploads, resets, and favicon installation stay local-only
 because they write files that cannot be saved back to your repo from a deployed
 site.
+
+Set `socialBanners.locked` to `true` when generated banners should start locked.
+Local admins/designers can also use the banner lock toggle in the generated page.
+Locked banners hide preset, upload, and reset controls while keeping the
+generated/chosen banner images available.
 
 ## Prepare Your Assets
 
@@ -245,6 +269,7 @@ Use it to change:
 - Logo grouping rules.
 - Banner presets.
 - Banner mark variants.
+- Banner controls, including whether generated banners should be locked down.
 - Output paths.
 
 The defaults are meant to be useful without heavy configuration. If your source

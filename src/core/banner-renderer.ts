@@ -36,6 +36,37 @@ function safeHex(value: string, fallback: string) {
   return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback
 }
 
+function hexToRgb(value: string) {
+  const hex = safeHex(value, '#000000')
+
+  return {
+    blue: Number.parseInt(hex.slice(5, 7), 16),
+    green: Number.parseInt(hex.slice(3, 5), 16),
+    red: Number.parseInt(hex.slice(1, 3), 16),
+  }
+}
+
+function rgbToHex({ blue, green, red }: { blue: number; green: number; red: number }) {
+  return `#${[red, green, blue]
+    .map((channel) =>
+      Math.round(clamp(channel, 0, 255))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`
+}
+
+function mixHexColor(source: string, target: string, amount: number) {
+  const sourceRgb = hexToRgb(source)
+  const targetRgb = hexToRgb(target)
+
+  return rgbToHex({
+    blue: sourceRgb.blue + (targetRgb.blue - sourceRgb.blue) * amount,
+    green: sourceRgb.green + (targetRgb.green - sourceRgb.green) * amount,
+    red: sourceRgb.red + (targetRgb.red - sourceRgb.red) * amount,
+  })
+}
+
 export function getEdgeAlignedLeft({
   alignment,
   canvasWidth,
@@ -76,6 +107,42 @@ function patternMarkup({
     `
   }
 
+  if (pattern === 'corner-frame') {
+    return `
+      <path d="M 0 0 H ${width * 0.44} L ${width * 0.22} ${height * 0.24} H 0 Z" fill="${accentColor}" opacity="0.62" />
+      <path d="M ${width} ${height} H ${width * 0.52} L ${width * 0.74} ${height * 0.72} H ${width} Z" fill="${accentColor}" opacity="0.72" />
+      <path d="M ${width * 0.84} 0 H ${width} V ${height * 0.42} L ${width * 0.7} ${height * 0.2} Z" fill="${secondaryColor}" opacity="0.16" />
+      <path d="M 0 ${height * 0.7} L ${width * 0.18} ${height} H 0 Z" fill="${secondaryColor}" opacity="0.2" />
+    `
+  }
+
+  if (pattern === 'horizon-lines') {
+    return `
+      <path d="M 0 ${height * 0.58} H ${width} V ${height * 0.75} H 0 Z" fill="${accentColor}" opacity="0.5" />
+      <path d="M 0 ${height * 0.42} H ${width} V ${height * 0.48} H 0 Z" fill="${secondaryColor}" opacity="0.16" />
+      <path d="M 0 ${height * 0.82} H ${width} V ${height * 0.88} H 0 Z" fill="${secondaryColor}" opacity="0.18" />
+      <path d="M ${width * 0.58} 0 H ${width * 0.72} V ${height} H ${width * 0.58} Z" fill="${accentColor}" opacity="0.16" />
+    `
+  }
+
+  if (pattern === 'offset-stack') {
+    return `
+      <path d="M ${width * 0.48} 0 H ${width} V ${height * 0.28} H ${width * 0.4} Z" fill="${accentColor}" opacity="0.54" />
+      <path d="M ${width * 0.58} ${height * 0.34} H ${width} V ${height * 0.56} H ${width * 0.5} Z" fill="${secondaryColor}" opacity="0.16" />
+      <path d="M ${width * 0.38} ${height * 0.62} H ${width} V ${height} H ${width * 0.28} Z" fill="${accentColor}" opacity="0.62" />
+      <path d="M 0 ${height * 0.12} H ${width * 0.24} V ${height * 0.42} H 0 Z" fill="${secondaryColor}" opacity="0.14" />
+    `
+  }
+
+  if (pattern === 'ribbon-fold') {
+    return `
+      <path d="M ${width * 0.18} 0 H ${width * 0.52} L ${width * 0.38} ${height} H ${width * 0.02} Z" fill="${accentColor}" opacity="0.48" />
+      <path d="M ${width * 0.58} 0 H ${width * 0.86} L ${width * 0.7} ${height} H ${width * 0.42} Z" fill="${accentColor}" opacity="0.34" />
+      <path d="M ${width * 0.82} 0 H ${width} V ${height} H ${width * 0.72} Z" fill="${secondaryColor}" opacity="0.16" />
+      <path d="M 0 ${height * 0.76} L ${width} ${height * 0.48} V ${height} H 0 Z" fill="${secondaryColor}" opacity="0.12" />
+    `
+  }
+
   if (pattern === 'split-field') {
     return `
       <path d="M ${width * 0.52} 0 L ${width} 0 L ${width} ${height} L ${width * 0.36} ${height} Z" fill="${accentColor}" opacity="0.92" />
@@ -106,17 +173,38 @@ function backgroundSvg(options: {
   secondaryColor: string
   width: number
 }) {
+  const gradientAccentColor = mixHexColor(
+    options.backgroundColor,
+    options.accentColor,
+    0.22,
+  )
+  const patternAccentColor = mixHexColor(
+    options.backgroundColor,
+    options.accentColor,
+    0.36,
+  )
+  const patternSecondaryColor = mixHexColor(
+    options.backgroundColor,
+    options.secondaryColor,
+    0.28,
+  )
+
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${options.width}" height="${options.height}" viewBox="0 0 ${options.width} ${options.height}">
       <defs>
         <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stop-color="${options.backgroundColor}" />
-          <stop offset="1" stop-color="${options.accentColor}" stop-opacity="0.72" />
+          <stop offset="0.62" stop-color="${options.backgroundColor}" />
+          <stop offset="1" stop-color="${gradientAccentColor}" />
         </linearGradient>
       </defs>
       <rect width="${options.width}" height="${options.height}" fill="url(#base)" />
-      ${patternMarkup(options)}
-      <rect width="${options.width}" height="${options.height}" fill="${options.backgroundColor}" opacity="0.08" />
+      ${patternMarkup({
+        ...options,
+        accentColor: patternAccentColor,
+        secondaryColor: patternSecondaryColor,
+      })}
+      <rect width="${options.width}" height="${options.height}" fill="${options.backgroundColor}" opacity="0.18" />
     </svg>
   `
 }

@@ -18,6 +18,7 @@ export type BrandKitNextAdapterOptions = {
 export type BrandKitBannerControls = {
   alignments: { key: string; label: string }[]
   colors: BrandKitSocialBannersConfig['colors']
+  locked?: boolean
   markVariants: {
     assetUrl?: string
     colorKeys?: string[]
@@ -91,6 +92,7 @@ export function createBrandKitBannerControls(
       { key: 'right', label: 'Right' },
     ],
     colors: normalizeColorLabels(config.socialBanners.colors) ?? [],
+    locked: config.socialBanners.locked,
     markVariants: config.socialBanners.markVariants.map((variant) => ({
       assetUrl: publicUrlFromAssetPath(variant.assetPath),
       colorKeys: variant.colorKeys ?? Object.keys(variant.colorAssets ?? {}),
@@ -107,9 +109,11 @@ export function createBrandKitBannerControls(
     })),
     patterns: [
       { key: 'diagonal-sweep', label: 'Sweep' },
+      { key: 'corner-frame', label: 'Corner' },
+      { key: 'offset-stack', label: 'Stack' },
       { key: 'radial-glow', label: 'Glow' },
+      { key: 'ribbon-fold', label: 'Ribbon' },
       { key: 'split-field', label: 'Split' },
-      { key: 'wave', label: 'Wave' },
     ],
   }
 }

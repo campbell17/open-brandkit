@@ -39,6 +39,7 @@ export default defineBrandKitConfig({
     ],
   },
   socialBanners: {
+    locked: false,
     markVariants: [
       {
         key: 'logo',
