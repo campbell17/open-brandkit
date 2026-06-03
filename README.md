@@ -22,12 +22,19 @@ See the
 [full changelog](https://github.com/campbell17/open-brandkit/blob/main/CHANGELOG.md)
 for recent release notes.
 
-## What's New in 0.6.2
+## What's New in 0.6.3
+
+- Fixed hydration warnings when saved social banner preferences from an older
+  install are still present in the browser.
+- Lowered the BrandKit overlay z-index to `1000000` so local development
+  warnings and popovers can appear above it.
+
+## 0.6.2 Changes
 
 - Split social banner Options into separate Color and Align boxes so larger mark
   color sets have room while alignment stays compact.
 
-## What's New in 0.6.1
+## 0.6.1 Changes
 
 - Added a Download PDF flow for a print-styled Brand Kit version with fixed
   Letter landscape sheets.

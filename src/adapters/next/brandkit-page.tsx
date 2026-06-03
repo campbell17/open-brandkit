@@ -3124,7 +3124,8 @@ function BannerPresetControls({
     }
   }
 
-  const [state, setState] = useState(readStoredState)
+  const [state, setState] = useState(defaultState)
+  const [hasLoadedStoredState, setLoadedStoredState] = useState(!storageKey)
   const [isApplying, setApplying] = useState(false)
   const markColorOptions = getMarkColorOptions(state.markVariant)
   const markVariantOptions = controls.markVariants.map((variant) => {
@@ -3151,10 +3152,16 @@ function BannerPresetControls({
   })
 
   useEffect(() => {
-    setState((current) => sanitizeState(current))
-  }, [defaultState])
+    setState((current) =>
+      storageKey && !hasLoadedStoredState
+        ? readStoredState()
+        : sanitizeState(current),
+    )
+    setLoadedStoredState(true)
+  }, [defaultState, hasLoadedStoredState, storageKey])
 
   useEffect(() => {
+    if (storageKey && !hasLoadedStoredState) return
     if (!canRenderInBrowser || !banners.length) return
 
     let isCurrent = true
@@ -3174,7 +3181,15 @@ function BannerPresetControls({
     return () => {
       isCurrent = false
     }
-  }, [banners, canRenderInBrowser, controls, onUpdated, state])
+  }, [
+    banners,
+    canRenderInBrowser,
+    controls,
+    hasLoadedStoredState,
+    onUpdated,
+    state,
+    storageKey,
+  ])
 
   async function apply(nextState: BannerPresetState) {
     persistState(nextState)
@@ -3842,7 +3857,7 @@ export function BrandKitPage({
     <div
       className="fixed inset-0 min-h-screen overflow-y-auto overscroll-contain bg-slate-50 text-slate-950"
       ref={pageRef}
-      style={{ zIndex: 2147483647 }}
+      style={{ zIndex: 1000000 }}
     >
       <style>
         {`

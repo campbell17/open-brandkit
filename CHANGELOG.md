@@ -4,6 +4,13 @@ Open BrandKit is early alpha software, so releases are still moving quickly.
 This changelog focuses on what changed for people installing or updating the
 package.
 
+## 0.6.3
+
+- Fixed a hydration warning caused by loading saved social banner preferences
+  from `localStorage` during the first client render.
+- Lowered the Next BrandKit root z-index to `1000000` so local development
+  warnings, popovers, and modals can still appear above it.
+
 ## 0.6.2
 
 - Split the social banner Options control into separate Color and Align boxes so
