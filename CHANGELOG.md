@@ -4,6 +4,11 @@ Open BrandKit is early alpha software, so releases are still moving quickly.
 This changelog focuses on what changed for people installing or updating the
 package.
 
+## 0.6.2
+
+- Split the social banner Options control into separate Color and Align boxes so
+  larger mark color sets have room to grow while alignment stays compact.
+
 ## 0.6.1
 
 - Added a Download PDF flow that opens a fixed Letter landscape Brand Kit page

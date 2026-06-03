@@ -2349,27 +2349,21 @@ const bannerAlignmentIcons: Record<string, LucideIcon> = {
   right: AlignEndVertical,
 }
 
-function BannerOptionsGroup({
-  alignmentOptions,
-  alignmentValue,
+function BannerMarkColorGroup({
   disabled,
   markColorOptions,
   markColorValue,
-  onAlignmentChange,
   onMarkColorChange,
 }: {
-  alignmentOptions: readonly { key: string; label: string }[]
-  alignmentValue: string
   disabled?: boolean
   markColorOptions: readonly { hex: string; key: string; label: string }[]
   markColorValue: string
-  onAlignmentChange: (value: string) => void
   onMarkColorChange: (value: string) => void
 }) {
   return (
     <fieldset className="space-y-2">
       <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
-        Options
+        Color
       </legend>
       <div className="inline-grid grid-cols-3 gap-1.5 rounded-md border border-neutral-300 bg-white p-1.5">
         {markColorOptions.map((option) => {
@@ -2398,6 +2392,28 @@ function BannerOptionsGroup({
             </button>
           )
         })}
+      </div>
+    </fieldset>
+  )
+}
+
+function BannerAlignmentGroup({
+  alignmentOptions,
+  alignmentValue,
+  disabled,
+  onAlignmentChange,
+}: {
+  alignmentOptions: readonly { key: string; label: string }[]
+  alignmentValue: string
+  disabled?: boolean
+  onAlignmentChange: (value: string) => void
+}) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-semibold tracking-[0.16em] text-neutral-500 uppercase">
+        Align
+      </legend>
+      <div className="inline-grid grid-cols-3 gap-1.5 rounded-md border border-neutral-300 bg-white p-1.5">
         {alignmentOptions.map((option) => {
           const Icon = bannerAlignmentIcons[option.key] ?? AlignCenterVertical
           const selected = alignmentValue === option.key
@@ -3246,14 +3262,17 @@ function BannerPresetControls({
           value={state.markVariant}
         />
         <div className="flex w-full flex-wrap items-start justify-center gap-4 min-[520px]:w-auto min-[520px]:flex-nowrap min-[1180px]:ml-auto min-[1180px]:justify-end">
-          <BannerOptionsGroup
-            alignmentOptions={controls.alignments}
-            alignmentValue={state.alignment}
+          <BannerMarkColorGroup
             disabled={disabled || isApplying}
             markColorOptions={markColorOptions}
             markColorValue={state.markColor}
-            onAlignmentChange={(value) => update('alignment', value)}
             onMarkColorChange={(value) => update('markColor', value)}
+          />
+          <BannerAlignmentGroup
+            alignmentOptions={controls.alignments}
+            alignmentValue={state.alignment}
+            disabled={disabled || isApplying}
+            onAlignmentChange={(value) => update('alignment', value)}
           />
           <BannerBaseColorGroup
             disabled={disabled || isApplying}

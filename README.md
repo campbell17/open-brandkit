@@ -22,6 +22,11 @@ See the
 [full changelog](https://github.com/campbell17/open-brandkit/blob/main/CHANGELOG.md)
 for recent release notes.
 
+## What's New in 0.6.2
+
+- Split social banner Options into separate Color and Align boxes so larger mark
+  color sets have room while alignment stays compact.
+
 ## What's New in 0.6.1
 
 - Added a Download PDF flow for a print-styled Brand Kit version with fixed
