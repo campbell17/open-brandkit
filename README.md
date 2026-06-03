@@ -25,7 +25,6 @@ for recent release notes.
 ## What's New in 0.6.4
 
 - Open PDF now uses an in-page print preview modal.
-- Fixed the printable PDF page favicon.
 
 ## 0.6.3 Changes
 
