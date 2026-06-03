@@ -12,6 +12,7 @@ import {
   getBrandKitManifestPath,
   loadBrandKitManifest,
 } from './manifest.js'
+import { generatePrintableBrandKitPage } from '../../core/print-page.js'
 
 export type BrandKitRouteHandlerOptions = BrandKitNextAdapterOptions & {
   appDir?: string
@@ -359,6 +360,31 @@ export function createBrandKitDownloadHandler(
   }
 }
 
+export function createBrandKitPrintHandler(
+  options: BrandKitRouteHandlerOptions = {},
+) {
+  return {
+    async GET(request: Request) {
+      try {
+        const manifest = await loadBrandKitManifest(options)
+        const url = new URL(request.url)
+        const html = generatePrintableBrandKitPage(manifest, {
+          autoPrint: url.searchParams.get('print') === '1',
+        })
+
+        return new Response(html, {
+          headers: {
+            'Cache-Control': 'no-store',
+            'Content-Type': 'text/html; charset=utf-8',
+          },
+        })
+      } catch {
+        return new Response('Brand Kit print page not found', { status: 404 })
+      }
+    },
+  }
+}
+
 export function createBrandKitFaviconHandler(
   config: unknown,
   options: BrandKitRouteHandlerOptions = {},
@@ -504,10 +530,6 @@ export function createBrandKitBannerUploadHandler(
             throw new Error('Banner reset requires the Brand Kit config.')
           }
 
-          if (manifest.bannerControlsLocked) {
-            return productionBlocked('Banner assets are locked.')
-          }
-
           if (body.action !== 'reset') {
             throw new Error('Unsupported banner action.')
           }
@@ -563,10 +585,6 @@ export function createBrandKitBannerUploadHandler(
         }
 
         const manifest = await loadBrandKitManifest(options)
-
-        if (manifest.bannerControlsLocked) {
-          return productionBlocked('Banner assets are locked.')
-        }
 
         const asset = findBannerAsset(manifest, assetId)
         const download = asset?.downloads.find((item) => item.format === 'PNG')
@@ -634,10 +652,6 @@ export function createBrandKitBannerPresetHandler(
         const body = (await request.json()) as BrandKitBannerPresetRequest
         const currentManifest = await loadBrandKitManifest(options)
 
-        if (currentManifest.bannerControlsLocked) {
-          return productionBlocked('Banner assets are locked.')
-        }
-
         const customBannerIds = getCustomBannerIds(currentManifest)
         const { buildBrandKit } = await import('../../core/build.js')
         const result = await buildBrandKit(
@@ -680,5 +694,6 @@ export function createBrandKitNextHandlers(
     bannerUpload: createBrandKitBannerUploadHandler(brandKitConfig, options),
     downloads: createBrandKitDownloadHandler(options),
     favicon: createBrandKitFaviconHandler(brandKitConfig, options),
+    print: createBrandKitPrintHandler(options),
   }
 }

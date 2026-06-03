@@ -30,13 +30,18 @@ import {
   loadBrandKitPrintColorGroups,
   normalizeHexColor,
 } from './colors.js'
+import { generatePrintableBrandKitPage } from './print-page.js'
 import { generateStaticBrandKitPage } from './static-page.js'
-import { defaultBannerMarkColor } from './social-banners.js'
+import {
+  defaultBannerMarkColor,
+  resolveSocialBannerColors,
+} from './social-banners.js'
 import type {
   BrandKitAsset,
   BrandKitAssetDownload,
   BrandKitAssetGroup,
   BrandKitBannerAsset,
+  BrandKitBannerColorConfig,
   BrandKitBannerGroup,
   BrandKitColor,
   BrandKitColorSection,
@@ -78,6 +83,7 @@ export type BuildBrandKitOptions = {
 export type BuildBrandKitResult = {
   manifest: BrandKitManifest
   manifestPath: string
+  printPath: string
   sitePath: string
   writtenFiles: string[]
 }
@@ -113,7 +119,7 @@ function outputPathFromRelative(outputRoot: string, relativePath: string) {
 
 function resolveColor(
   value: string | undefined,
-  colors: BrandKitSocialBannersConfig['colors'],
+  colors: readonly BrandKitBannerColorConfig[],
   fallback: string,
 ) {
   if (!value) return fallback
@@ -158,7 +164,7 @@ function mixHexColor(source: string, target: string, amount: number) {
 
 function resolveBannerBaseColor(
   value: string | undefined,
-  colors: BrandKitSocialBannersConfig['colors'],
+  colors: readonly BrandKitBannerColorConfig[],
   fallback: string,
 ) {
   if (value) {
@@ -373,12 +379,14 @@ async function discoverLogoGroups({
 
 async function renderBannerGroups({
   assetBasePath,
+  brandColors,
   config,
   customBannerIds = new Set<string>(),
   outputRoot,
   projectRoot,
 }: {
   assetBasePath: string
+  brandColors: BrandKitColor[]
   config: BrandKitConfig
   customBannerIds?: ReadonlySet<string>
   outputRoot: string
@@ -389,14 +397,18 @@ async function renderBannerGroups({
   }
 
   const bannerConfig = config.socialBanners
+  const bannerColors = resolveSocialBannerColors({
+    brandColors,
+    configuredColors: bannerConfig.colors,
+  })
   const outputDir = bannerConfig.outputDir ?? 'banners'
   const publicPath = bannerConfig.publicPath ?? joinPublicUrl(assetBasePath, outputDir)
   const bannerOutputDir = path.join(outputRoot, stripSlashes(outputDir))
   const groups = new Map<string, BrandKitBannerGroup>()
   const writtenFiles: string[] = []
-  const firstColor = bannerConfig.colors[0]?.hex ?? '#0d2249'
-  const secondColor = bannerConfig.colors[1]?.hex ?? '#4784de'
-  const thirdColor = bannerConfig.colors[2]?.hex ?? '#ffffff'
+  const firstColor = bannerColors[0]?.hex ?? '#0d2249'
+  const secondColor = bannerColors[1]?.hex ?? '#4784de'
+  const thirdColor = bannerColors[2]?.hex ?? '#ffffff'
 
   await mkdir(bannerOutputDir, { recursive: true })
 
@@ -416,20 +428,20 @@ async function renderBannerGroups({
     const isCustom = customBannerIds.has(preset.key)
     const backgroundColor = resolveBannerBaseColor(
       preset.backgroundColor,
-      bannerConfig.colors,
+      bannerColors,
       firstColor,
     )
     const accentColor = resolveColor(
       preset.accentColor,
-      bannerConfig.colors,
+      bannerColors,
       secondColor,
     )
     const secondaryColor = resolveColor(
       preset.secondaryColor,
-      bannerConfig.colors,
+      bannerColors,
       thirdColor,
     )
-    const fallbackMarkColor = defaultBannerMarkColor(markVariant, bannerConfig.colors)
+    const fallbackMarkColor = defaultBannerMarkColor(markVariant, bannerColors)
     const markAssetPath =
       (preset.markColor ? markVariant.colorAssets?.[preset.markColor] : undefined) ??
       markVariant.colorAssets?.[fallbackMarkColor] ??
@@ -658,6 +670,7 @@ export async function buildBrandKit(
   )
   const bannerResult = await renderBannerGroups({
     assetBasePath,
+    brandColors,
     config,
     customBannerIds: new Set(options.customBannerIds ?? []),
     outputRoot,
@@ -695,22 +708,30 @@ export async function buildBrandKit(
     outputRoot,
     output.manifestFileName ?? 'brandkit.manifest.json',
   )
+  const printFileName = output.printFileName ?? 'print.html'
+  const printPath = path.join(outputRoot, printFileName)
   const sitePath = path.join(outputRoot, output.siteFileName ?? 'index.html')
 
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
-  await writeFile(sitePath, generateStaticBrandKitPage(manifest))
+  await writeFile(printPath, generatePrintableBrandKitPage(manifest))
+  await writeFile(
+    sitePath,
+    generateStaticBrandKitPage(manifest, { printHref: `./${printFileName}` }),
+  )
 
   writtenFiles.push(
     ...logoResult.writtenFiles,
     ...bannerResult.writtenFiles,
     ...downloadResult.writtenFiles,
     manifestPath,
+    printPath,
     sitePath,
   )
 
   return {
     manifest,
     manifestPath,
+    printPath,
     sitePath,
     writtenFiles,
   }

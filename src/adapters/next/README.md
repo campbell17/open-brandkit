@@ -80,9 +80,20 @@ export const runtime = 'nodejs'
 export const { GET } = createBrandKitDownloadHandler()
 ```
 
+## Print Route
+
+```ts
+// app/brandkit/print/route.ts
+import { createBrandKitPrintHandler } from 'open-brandkit/next/server'
+
+export const runtime = 'nodejs'
+export const { GET } = createBrandKitPrintHandler()
+```
+
 ## Responsibilities
 
-- `BrandKitPage` renders logos, colors, avatar generation, favicon download/install controls, banners, banner replacement, and banner preset controls.
+- `BrandKitPage` renders logos, colors, avatar generation, favicon download/install controls, banners, banner replacement, banner preset controls, and a printable PDF flow.
 - `getBrandKitNextPageProps` loads `public/brandkit/brandkit.manifest.json` and derives serializable banner controls from `brandkit.config.ts`.
+- `createBrandKitPrintHandler` serves a print-styled HTML page for saving the approved logos, icons, web colors, and print colors as a PDF.
 - Banner preset actions can run in production when the routes are wired. Custom banner uploads, resets, and favicon installation stay local-only because they write files that cannot be saved back to the repo from a deployed site.
 - Core parsing and generation stay in `src/core`; this adapter consumes the generated manifest and calls core build helpers when regenerating banner presets.

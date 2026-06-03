@@ -22,18 +22,19 @@ See the
 [full changelog](https://github.com/campbell17/open-brandkit/blob/main/CHANGELOG.md)
 for recent release notes.
 
-## What's New in 0.6.0
+## What's New in 0.6.1
 
-- Added a visible social banner lock toggle for local admins/designers.
-- Improved banner controls with mark thumbnails, compact Options/Base/Pattern
-  swatches, numbered pattern buttons, and better responsive wrapping.
-- Added six social banner pattern choices: Sweep, Corner, Stack, Glow, Ribbon,
-  and Split.
-- Avatar icon swatches now show the actual approved icon artwork, and avatar
-  sliders use the primary brand color.
-- The BrandKit masthead now shows a back affordance and links the package
-  version to npm.
-- Download-all buttons now use explicit zip filenames.
+- Added a Download PDF flow for a print-styled Brand Kit version with fixed
+  Letter landscape sheets.
+- The printable version focuses on approved logos, icons, web colors, and print
+  colors, with 3-column print shade pages and values visible on-page.
+- Removed project-specific guidance blocks from the printable PDF layout.
+- Social banner choices now persist across refreshes.
+- Added a back-to-top button for longer Brand Kit pages.
+- Reworked the banner lock as an "Allow public changes" toggle: local dev
+  controls stay usable, while locked public pages hide banner preset controls.
+- `brandkit build` now writes `public/brandkit/print.html`.
+- Fresh Next installs now include a `/brandkit/print` route.
 
 See the
 [full changelog](https://github.com/campbell17/open-brandkit/blob/main/CHANGELOG.md)
@@ -48,6 +49,7 @@ Open BrandKit can generate a brand kit with:
 - Brand color cards pulled from a source file.
 - Avatar and favicon generation from your icon files.
 - Ready-to-use social banner images.
+- A print-styled PDF flow for approved marks and color references.
 - ZIP downloads for asset groups.
 - A generated manifest for the brand kit page.
 
@@ -100,10 +102,14 @@ routes. Custom banner uploads, resets, and favicon installation stay local-only
 because they write files that cannot be saved back to your repo from a deployed
 site.
 
-Set `socialBanners.locked` to `true` when generated banners should start locked.
-Local admins/designers can also use the banner lock toggle in the generated page.
-Locked banners hide preset, upload, and reset controls while keeping the
-generated/chosen banner images available.
+Set `socialBanners.locked` to `true` when public pages should hide banner preset
+controls by default. Local admins/designers can use the "Allow public changes"
+toggle in the generated page to change that public state. Local development
+controls stay usable so generated/chosen banner images can still be updated.
+
+If `socialBanners.colors` is omitted, Open BrandKit derives `primary`, `accent`,
+and `light` banner colors from the loaded brand color source. This keeps banner
+backgrounds tied to the same color file as the web and print swatches.
 
 ## Prepare Your Assets
 
@@ -213,6 +219,7 @@ brandkit.config.ts
 <app-dir>/brandkit/banners/route.ts
 <app-dir>/brandkit/banners/presets/route.ts
 <app-dir>/brandkit/download/[group]/route.ts
+<app-dir>/brandkit/print/route.ts
 public/brandkit/*
 ```
 
@@ -269,7 +276,7 @@ Use it to change:
 - Logo grouping rules.
 - Banner presets.
 - Banner mark variants.
-- Banner controls, including whether generated banners should be locked down.
+- Banner controls, including whether public pages should allow banner changes.
 - Output paths.
 
 The defaults are meant to be useful without heavy configuration. If your source

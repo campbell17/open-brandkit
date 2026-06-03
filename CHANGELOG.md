@@ -4,6 +4,26 @@ Open BrandKit is early alpha software, so releases are still moving quickly.
 This changelog focuses on what changed for people installing or updating the
 package.
 
+## 0.6.1
+
+- Added a Download PDF flow that opens a fixed Letter landscape Brand Kit page
+  and uses the browser print dialog for saving as PDF.
+- Added a dedicated printable layout for approved logos, icons, web colors, and
+  print colors, with 3-column sheets and all values visible on-page.
+- Removed project-specific PDF guidance blocks so the printable version stays
+  generic across brands.
+- Social banner colors can now be omitted from config; Open BrandKit derives
+  `primary`, `accent`, and `light` from the loaded brand color source.
+- Social banner preset choices now persist across refreshes.
+- Added a back-to-top button that appears after scrolling down the Brand Kit
+  page.
+- Reworked the banner lock control as an "Allow public changes" toggle. Local
+  development controls stay available, while locked public pages hide banner
+  preset controls.
+- `brandkit build` now writes `print.html` next to the generated static page.
+- Fresh Next installs now include a `/brandkit/print` route powered by
+  `createBrandKitPrintHandler`.
+
 ## 0.6.0
 
 - Archive download buttons now provide explicit zip filenames that match the

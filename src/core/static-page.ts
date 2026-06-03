@@ -865,6 +865,29 @@ h1 {
   color: var(--muted);
   font-size: 14px;
 }
+.back-to-top[hidden] { display: none; }
+.back-to-top {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 110;
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: #334155;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.14);
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.back-to-top:hover {
+  border-color: #cbd5e1;
+  color: var(--ink);
+}
 .lightbox[hidden] { display: none; }
 .lightbox {
   position: fixed;
@@ -1021,6 +1044,7 @@ function lucideIcon(name: string, className = 'icon') {
       '<path d="M21 5H3" /><path d="M21 12H9" /><path d="M21 19H7" />',
     'arrow-down': '<path d="M12 5v14" /><path d="m19 12-7 7-7-7" />',
     'arrow-left': '<path d="m12 19-7-7 7-7" /><path d="M19 12H5" />',
+    'arrow-up': '<path d="M12 19V5" /><path d="m5 12 7-7 7 7" />',
     copy:
       '<rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />',
     download:
@@ -1682,6 +1706,7 @@ function clientScript(manifest: BrandKitManifest) {
     const lightboxDownloads = document.getElementById('lightbox-downloads');
     const lightboxClose = document.getElementById('lightbox-close');
     const lightboxPanel = lightbox?.querySelector('.lightbox-panel');
+    const backToTop = document.getElementById('back-to-top');
 
     function preferredDownload(asset) {
       return asset.downloads.find((download) => download.format === 'PNG') ||
@@ -1721,6 +1746,17 @@ function clientScript(manifest: BrandKitManifest) {
     window.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeLightbox();
     });
+
+    function updateBackToTop() {
+      if (backToTop) backToTop.hidden = window.scrollY <= window.innerHeight / 4;
+    }
+
+    backToTop?.addEventListener('click', () => {
+      window.scrollTo({ behavior: 'smooth', top: 0 });
+    });
+    window.addEventListener('scroll', updateBackToTop, { passive: true });
+    window.addEventListener('resize', updateBackToTop);
+    updateBackToTop();
 
     const canvas = document.getElementById('avatar-canvas');
     const surface = document.getElementById('avatar-surface');
@@ -1910,7 +1946,10 @@ function clientScript(manifest: BrandKitManifest) {
   `
 }
 
-export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
+export function generateStaticBrandKitPage(
+  manifest: BrandKitManifest,
+  options: { printHref?: string } = {},
+) {
   const heroAsset = findHeroAsset(manifest.assetGroups)
   const footerAsset = findFooterAsset(manifest.assetGroups)
   const assetCount = manifest.assetGroups.reduce(
@@ -1929,6 +1968,7 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
   const generatorVersionHref = generatorVersion
     ? npmPackageVersionUrl(generatorPackageName, generatorVersion)
     : ''
+  const printHref = options.printHref ?? './print.html'
 
   return `<!doctype html>
 <html lang="en">
@@ -1958,6 +1998,7 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
             <a class="nav-link" href="#colors">${lucideIcon('arrow-down', 'nav-arrow')}<span>Colors</span></a>
             ${manifest.bannerGroups.length ? `<a class="nav-link" href="#banners">${lucideIcon('arrow-down', 'nav-arrow')}<span>Banners</span></a>` : ''}
             <span class="asset-count">${totalAssetCount} ${totalAssetCount === 1 ? 'asset' : 'assets'} available</span>
+            <a class="button" href="${escapeHtml(printHref)}" target="_blank" rel="noreferrer">${lucideIcon('download')}<span>Download PDF</span></a>
             ${manifest.downloads.allAssets ? `<a class="button" href="${escapeHtml(manifest.downloads.allAssets)}" download="${escapeHtml(fileNameFromUrl(manifest.downloads.allAssets) ?? '')}">${lucideIcon('download')}<span>Download all</span></a>` : ''}
           </nav>
         </div>
@@ -2017,6 +2058,7 @@ export function generateStaticBrandKitPage(manifest: BrandKitManifest) {
         <p>&copy; ${new Date().getFullYear()} ${escapeHtml(manifest.brand.name)}. All rights reserved.</p>
       </div>
     </footer>
+    <button class="back-to-top" id="back-to-top" type="button" aria-label="Back to top" title="Back to top" hidden>${lucideIcon('arrow-up')}</button>
     <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" hidden>
       <div class="lightbox-align">
         <div class="lightbox-panel">

@@ -2,8 +2,11 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { applyBrandCasing } from '../../core/assets.js'
+import { resolveSocialBannerColors } from '../../core/social-banners.js'
 import type {
+  BrandKitBannerColorConfig,
   BrandKitConfig,
+  BrandKitColor,
   BrandKitManifest,
   BrandKitSocialBannersConfig,
 } from '../../core/types.js'
@@ -17,7 +20,7 @@ export type BrandKitNextAdapterOptions = {
 
 export type BrandKitBannerControls = {
   alignments: { key: string; label: string }[]
-  colors: BrandKitSocialBannersConfig['colors']
+  colors: BrandKitBannerColorConfig[]
   locked?: boolean
   markVariants: {
     assetUrl?: string
@@ -69,6 +72,7 @@ export async function loadBrandKitManifest(
 
 export function createBrandKitBannerControls(
   config: BrandKitConfig,
+  brandColors: BrandKitColor[] = [],
 ): BrandKitBannerControls | undefined {
   if (!config.socialBanners) return undefined
 
@@ -84,6 +88,10 @@ export function createBrandKitBannerControls(
       ...color,
       label: applyConfiguredCasing(color.label),
     }))
+  const bannerColors = resolveSocialBannerColors({
+    brandColors,
+    configuredColors: config.socialBanners.colors,
+  })
 
   return {
     alignments: [
@@ -91,7 +99,7 @@ export function createBrandKitBannerControls(
       { key: 'center', label: 'Center' },
       { key: 'right', label: 'Right' },
     ],
-    colors: normalizeColorLabels(config.socialBanners.colors) ?? [],
+    colors: normalizeColorLabels(bannerColors) ?? [],
     locked: config.socialBanners.locked,
     markVariants: config.socialBanners.markVariants.map((variant) => ({
       assetUrl: publicUrlFromAssetPath(variant.assetPath),
@@ -122,8 +130,12 @@ export async function getBrandKitNextPageProps(
   config?: BrandKitConfig,
   options: BrandKitNextAdapterOptions = {},
 ): Promise<BrandKitNextPageProps> {
+  const manifest = await loadBrandKitManifest(options)
+
   return {
-    bannerControls: config ? createBrandKitBannerControls(config) : undefined,
-    manifest: await loadBrandKitManifest(options),
+    bannerControls: config
+      ? createBrandKitBannerControls(config, manifest.brandColors)
+      : undefined,
+    manifest,
   }
 }

@@ -6,8 +6,10 @@ import {
   AlignStartVertical,
   ArrowDown,
   ArrowLeft,
+  ArrowUp,
   Copy,
   Download,
+  FileText,
   RotateCcw,
   Upload,
   X,
@@ -36,6 +38,7 @@ import type {
   BrandKitPrintColor,
   BrandKitPrintColorGroup,
 } from '../../core/types.js'
+import { generatePrintableBrandKitPage } from '../../core/print-page.js'
 import type { BrandKitBannerControls } from './manifest.js'
 import {
   defaultBannerMarkColor,
@@ -913,6 +916,34 @@ function DownloadAllButton({
       <DownloadIcon />
       <span>{label}</span>
     </a>
+  )
+}
+
+function DownloadPdfButton({ manifest }: { manifest: BrandKitManifest }) {
+  function openPrintablePage() {
+    const printWindow = window.open('', '_blank')
+
+    if (!printWindow) {
+      window.open(`${manifest.route}/print?print=1`, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    printWindow.opener = null
+    printWindow.document.write(
+      generatePrintableBrandKitPage(manifest, { autoPrint: true }),
+    )
+    printWindow.document.close()
+  }
+
+  return (
+    <button
+      className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+      onClick={openPrintablePage}
+      type="button"
+    >
+      <FileText aria-hidden className="h-4 w-4" />
+      <span>Download PDF</span>
+    </button>
   )
 }
 
@@ -2489,25 +2520,24 @@ function BannerPatternGroup({
   )
 }
 
-function BannerLockToggle({
-  checked,
+function BannerPublicChangesToggle({
+  allowed,
   disabled,
   onChange,
 }: {
-  checked: boolean
+  allowed: boolean
   disabled?: boolean
-  onChange: (checked: boolean) => void
+  onChange: (allowed: boolean) => void
 }) {
   return (
     <label
       className={`inline-flex items-center gap-2 text-sm font-medium text-slate-700 ${
         disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
       }`}
-      title={disabled ? 'Banner lock changes are local-only.' : undefined}
     >
-      <span>Lock banners</span>
+      <span>Allow public changes</span>
       <input
-        checked={checked}
+        checked={allowed}
         className="peer sr-only"
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.checked)}
@@ -2945,15 +2975,19 @@ async function renderBannerPreviewOverrides({
 function BannerPresetControls({
   banners,
   controls,
+  disabled,
   endpoint,
   onToast,
   onUpdated,
+  storageKey,
 }: {
   banners: BrandKitBannerAsset[]
   controls: BrandKitBannerControls
+  disabled?: boolean
   endpoint: string
   onToast: ShowToast
   onUpdated: (overrides?: BannerPreviewOverride[]) => void
+  storageKey?: string
 }) {
   const canRenderInBrowser = controls.markVariants.some(
     (variant) => variant.assetUrl || Object.keys(variant.colorAssetUrls ?? {}).length,
@@ -2975,31 +3009,6 @@ function BannerPresetControls({
     return defaultBannerMarkColor(markVariant, controls.colors)
   }
 
-  const defaultState = useMemo<BannerPresetState>(
-    () => {
-      const markVariant = controls.markVariants[0]?.key ?? ''
-      const backgroundOptions = bannerBaseColorOptions(controls.colors)
-      const backgroundOption = backgroundOptions[0]
-
-      return {
-        accentColor: backgroundOption?.accentColor ?? controls.colors[0]?.hex ?? '',
-        alignment: 'center',
-        backgroundColor: backgroundOption?.key ?? controls.colors[0]?.key ?? '',
-        markColor: getDefaultMarkColor(markVariant),
-        markVariant,
-        pattern: controls.patterns[0]?.key ?? 'diagonal-sweep',
-        secondaryColor:
-          backgroundOption?.secondaryColor ??
-          controls.colors[1]?.hex ??
-          controls.colors[0]?.hex ??
-          '',
-      }
-    },
-    [controls],
-  )
-  const [state, setState] = useState(defaultState)
-  const [isApplying, setApplying] = useState(false)
-  const markColorOptions = getMarkColorOptions(state.markVariant)
   const baseColorOptions = useMemo(
     () => bannerBaseColorOptions(controls.colors),
     [controls.colors],
@@ -3011,6 +3020,97 @@ function BannerPresetControls({
         .slice(0, 6),
     [controls.patterns],
   )
+  const defaultState = useMemo<BannerPresetState>(
+    () => {
+      const markVariant = controls.markVariants[0]?.key ?? ''
+      const backgroundOption = baseColorOptions[0]
+
+      return {
+        accentColor: backgroundOption?.accentColor ?? controls.colors[0]?.hex ?? '',
+        alignment: 'center',
+        backgroundColor: backgroundOption?.key ?? controls.colors[0]?.key ?? '',
+        markColor: getDefaultMarkColor(markVariant),
+        markVariant,
+        pattern: patternOptions[0]?.key ?? controls.patterns[0]?.key ?? 'diagonal-sweep',
+        secondaryColor:
+          backgroundOption?.secondaryColor ??
+          controls.colors[1]?.hex ??
+          controls.colors[0]?.hex ??
+          '',
+      }
+    },
+    [baseColorOptions, controls, patternOptions],
+  )
+
+  function sanitizeState(value: Partial<BannerPresetState>): BannerPresetState {
+    const markVariant = controls.markVariants.some(
+      (variant) => variant.key === value.markVariant,
+    )
+      ? value.markVariant ?? defaultState.markVariant
+      : defaultState.markVariant
+    const availableMarkColors = getMarkColorOptions(markVariant)
+    const markColor = availableMarkColors.some(
+      (option) => option.key === value.markColor,
+    )
+      ? value.markColor ?? defaultState.markColor
+      : getDefaultMarkColor(markVariant)
+    const backgroundOption =
+      baseColorOptions.find(
+        (option) =>
+          option.key === value.backgroundColor || option.hex === value.backgroundColor,
+      ) ??
+      baseColorOptions.find(
+        (option) =>
+          option.key === defaultState.backgroundColor ||
+          option.hex === defaultState.backgroundColor,
+      )
+    const pattern = patternOptions.some((option) => option.key === value.pattern)
+      ? value.pattern ?? defaultState.pattern
+      : defaultState.pattern
+    const alignment = controls.alignments.some(
+      (option) => option.key === value.alignment,
+    )
+      ? value.alignment ?? defaultState.alignment
+      : defaultState.alignment
+
+    return {
+      accentColor: backgroundOption?.accentColor ?? defaultState.accentColor,
+      alignment,
+      backgroundColor: backgroundOption?.key ?? defaultState.backgroundColor,
+      markColor,
+      markVariant,
+      pattern,
+      secondaryColor: backgroundOption?.secondaryColor ?? defaultState.secondaryColor,
+    }
+  }
+
+  function readStoredState() {
+    if (!storageKey || typeof window === 'undefined') return defaultState
+
+    try {
+      const stored = window.localStorage.getItem(storageKey)
+
+      if (!stored) return defaultState
+
+      return sanitizeState(JSON.parse(stored) as Partial<BannerPresetState>)
+    } catch {
+      return defaultState
+    }
+  }
+
+  function persistState(nextState: BannerPresetState) {
+    if (!storageKey || typeof window === 'undefined') return
+
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(nextState))
+    } catch {
+      // Persistence is a convenience; keep the controls usable if storage is blocked.
+    }
+  }
+
+  const [state, setState] = useState(readStoredState)
+  const [isApplying, setApplying] = useState(false)
+  const markColorOptions = getMarkColorOptions(state.markVariant)
   const markVariantOptions = controls.markVariants.map((variant) => {
     const fallbackColor = getDefaultMarkColor(variant.key)
     const variantColorOptions = getMarkColorOptions(variant.key)
@@ -3035,6 +3135,10 @@ function BannerPresetControls({
   })
 
   useEffect(() => {
+    setState((current) => sanitizeState(current))
+  }, [defaultState])
+
+  useEffect(() => {
     if (!canRenderInBrowser || !banners.length) return
 
     let isCurrent = true
@@ -3042,7 +3146,7 @@ function BannerPresetControls({
     void renderBannerPreviewOverrides({
       banners,
       controls,
-      state: defaultState,
+      state,
     })
       .then((overrides) => {
         if (isCurrent) onUpdated(overrides)
@@ -3054,9 +3158,13 @@ function BannerPresetControls({
     return () => {
       isCurrent = false
     }
-  }, [banners, canRenderInBrowser, controls, defaultState, onUpdated])
+  }, [banners, canRenderInBrowser, controls, onUpdated, state])
 
   async function apply(nextState: BannerPresetState) {
+    persistState(nextState)
+
+    if (disabled) return
+
     setApplying(true)
 
     try {
@@ -3100,6 +3208,7 @@ function BannerPresetControls({
     key: Key,
     value: BannerPresetState[Key],
   ) {
+    if (disabled) return
     if (state[key] === value) return
 
     const nextState = { ...state, [key]: value }
@@ -3131,7 +3240,7 @@ function BannerPresetControls({
     <div className="mt-6 w-full rounded-md border border-slate-200 bg-white p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-center gap-5 min-[1180px]:justify-between">
         <BannerMarkVariantGroup
-          disabled={isApplying}
+          disabled={disabled || isApplying}
           onChange={(value) => update('markVariant', value)}
           options={markVariantOptions}
           value={state.markVariant}
@@ -3140,20 +3249,20 @@ function BannerPresetControls({
           <BannerOptionsGroup
             alignmentOptions={controls.alignments}
             alignmentValue={state.alignment}
-            disabled={isApplying}
+            disabled={disabled || isApplying}
             markColorOptions={markColorOptions}
             markColorValue={state.markColor}
             onAlignmentChange={(value) => update('alignment', value)}
             onMarkColorChange={(value) => update('markColor', value)}
           />
           <BannerBaseColorGroup
-            disabled={isApplying}
+            disabled={disabled || isApplying}
             onChange={(value) => update('backgroundColor', value)}
             options={baseColorOptions}
             value={state.backgroundColor}
           />
           <BannerPatternGroup
-            disabled={isApplying}
+            disabled={disabled || isApplying}
             onChange={(value) => update('pattern', value)}
             options={patternOptions}
             value={state.pattern}
@@ -3166,7 +3275,6 @@ function BannerPresetControls({
 
 function BannerCard({
   asset,
-  canUpload,
   endpoint,
   isCustom,
   previewOverride,
@@ -3174,9 +3282,10 @@ function BannerCard({
   onCustomStateChange,
   onToast,
   onUpdated,
+  showUploadControls,
+  uploadControlsDisabled,
 }: {
   asset: BrandKitBannerAsset
-  canUpload: boolean
   endpoint?: string
   isCustom: boolean
   onCustomStateChange: (assetId: string, isCustom: boolean) => void
@@ -3184,6 +3293,8 @@ function BannerCard({
   onUpdated: () => void
   previewOverride?: string
   previewVersion: number
+  showUploadControls: boolean
+  uploadControlsDisabled?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isReplacing, setReplacing] = useState(false)
@@ -3199,7 +3310,7 @@ function BannerCard({
   const previewWidth = Math.round(asset.width * bannerPreviewScale)
 
   async function replaceBanner(file: File) {
-    if (!endpoint) return
+    if (!endpoint || uploadControlsDisabled) return
 
     const formData = new FormData()
 
@@ -3236,7 +3347,7 @@ function BannerCard({
   }
 
   async function resetBanner() {
-    if (!endpoint) return
+    if (!endpoint || uploadControlsDisabled) return
 
     setResetting(true)
     onToast('Resetting banner...', 'info')
@@ -3308,18 +3419,19 @@ function BannerCard({
               download={download}
             />
           ))}
-          {canUpload ? (
+          {showUploadControls ? (
             <>
               <input
                 accept="image/png,image/jpeg,image/webp,image/svg+xml"
                 className="sr-only"
+                disabled={uploadControlsDisabled || isReplacing}
                 onChange={handleFileChange}
                 ref={inputRef}
                 type="file"
               />
               <button
                 className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isReplacing}
+                disabled={uploadControlsDisabled || isReplacing}
                 onClick={() => inputRef.current?.click()}
                 type="button"
               >
@@ -3330,7 +3442,7 @@ function BannerCard({
                 <button
                   aria-label="Reset to default"
                   className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-800 transition-colors hover:border-neutral-400 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isReplacing || isResetting}
+                  disabled={uploadControlsDisabled || isReplacing || isResetting}
                   onClick={() => void resetBanner()}
                   title="Reset to default"
                   type="button"
@@ -3347,7 +3459,6 @@ function BannerCard({
 }
 
 function BannerGroup({
-  canUseDevActions,
   customBannerIds,
   endpoints,
   group,
@@ -3356,8 +3467,9 @@ function BannerGroup({
   onCustomStateChange,
   onToast,
   onUpdated,
+  showUploadControls,
+  uploadControlsDisabled,
 }: {
-  canUseDevActions: boolean
   customBannerIds: ReadonlySet<string>
   endpoints?: BrandKitPageEndpoints
   group: BrandKitBannerGroup
@@ -3366,6 +3478,8 @@ function BannerGroup({
   onUpdated: () => void
   previewOverrides: Record<string, string>
   previewVersion: number
+  showUploadControls: boolean
+  uploadControlsDisabled?: boolean
 }) {
   return (
     <section className="space-y-5">
@@ -3381,7 +3495,6 @@ function BannerGroup({
         {group.items.map((asset) => (
           <BannerCard
             asset={asset}
-            canUpload={canUseDevActions && Boolean(endpoints?.bannerUpload)}
             endpoint={endpoints?.bannerUpload}
             isCustom={customBannerIds.has(asset.id)}
             key={asset.id}
@@ -3390,6 +3503,8 @@ function BannerGroup({
             onUpdated={onUpdated}
             previewOverride={previewOverrides[asset.id]}
             previewVersion={previewVersion}
+            showUploadControls={showUploadControls && Boolean(endpoints?.bannerUpload)}
+            uploadControlsDisabled={uploadControlsDisabled}
           />
         ))}
       </div>
@@ -3491,6 +3606,8 @@ export function BrandKitPage({
 }: BrandKitPageProps) {
   const [selectedAsset, setSelectedAsset] = useState<BrandKitAsset | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  const pageRef = useRef<HTMLDivElement>(null)
   const toastSequence = useRef(0)
   const [bannerPreviewVersion, setBannerPreviewVersion] = useState(0)
   const [bannerPreviewOverrides, setBannerPreviewOverrides] = useState<
@@ -3552,13 +3669,20 @@ export function BrandKitPage({
   const bannerDownloadHref = `${manifest.route}/download/banners`
   const allDownloadFileName = fileNameFromUrl(manifest.downloads.allAssets)
   const bannerDownloadFileName = fileNameFromUrl(manifest.downloads.bannerAssets)
+  const isLocalDevelopment = process.env.NODE_ENV !== 'production'
   const canInstallFavicons =
-    canUseDevActions && process.env.NODE_ENV !== 'production'
+    canUseDevActions && isLocalDevelopment
   const canToggleBannerLock =
-    canUseDevActions && Boolean(endpoints?.bannerUpload)
-  const canUseBannerActions = canUseDevActions && !bannerControlsLocked
-  const canUseCustomBannerUploads =
-    canUseDevActions && !bannerControlsLocked && process.env.NODE_ENV !== 'production'
+    canUseDevActions && isLocalDevelopment && Boolean(endpoints?.bannerUpload)
+  const canEditLocalBannerAssets = canUseDevActions && isLocalDevelopment
+  const canUseBannerActions = canEditLocalBannerAssets || !bannerControlsLocked
+  const canShowBannerActions =
+    (canEditLocalBannerAssets || !bannerControlsLocked) &&
+    Boolean(endpoints?.bannerPresets && bannerControls)
+  const canShowCustomBannerUploads =
+    canEditLocalBannerAssets
+  const canUseCustomBannerUploads = canShowCustomBannerUploads
+  const bannerPresetStorageKey = `open-brandkit:${manifest.route}:${manifest.brand.name}:banner-presets`
 
   useEffect(() => {
     setBannerControlsLocked(
@@ -3626,7 +3750,7 @@ export function BrandKitPage({
       }
 
       setBannerControlsLocked(result.locked ?? locked)
-      showToast(locked ? 'Banner controls locked.' : 'Banner controls unlocked.')
+      showToast(locked ? 'Public changes locked.' : 'Public changes allowed.')
     } catch (error) {
       onBannerLockError(error)
     } finally {
@@ -3639,6 +3763,10 @@ export function BrandKitPage({
       error instanceof Error ? error.message : 'Could not update banner lock.',
       'error',
     )
+  }
+
+  function scrollToTop() {
+    pageRef.current?.scrollTo({ behavior: 'smooth', top: 0 })
   }
 
   function scrollToSection(
@@ -3668,9 +3796,33 @@ export function BrandKitPage({
     }
   }, [])
 
+  useEffect(() => {
+    const page = pageRef.current
+
+    if (!page) return
+
+    const scrollContainer = page
+
+    function updateBackToTop() {
+      setShowBackToTop(
+        scrollContainer.scrollTop > scrollContainer.clientHeight / 4,
+      )
+    }
+
+    updateBackToTop()
+    scrollContainer.addEventListener('scroll', updateBackToTop, { passive: true })
+    window.addEventListener('resize', updateBackToTop)
+
+    return () => {
+      scrollContainer.removeEventListener('scroll', updateBackToTop)
+      window.removeEventListener('resize', updateBackToTop)
+    }
+  }, [])
+
   return (
     <div
       className="fixed inset-0 min-h-screen overflow-y-auto overscroll-contain bg-slate-50 text-slate-950"
+      ref={pageRef}
       style={{ zIndex: 2147483647 }}
     >
       <style>
@@ -3744,6 +3896,7 @@ body > footer {
               <span className="text-sm text-slate-500">
                 {formatAssetCount(totalAssetCount)}
               </span>
+              <DownloadPdfButton manifest={manifest} />
               {manifest.downloads.allAssets ? (
                 <DownloadAllButton
                   fileName={allDownloadFileName}
@@ -3875,40 +4028,41 @@ body > footer {
                     Ready-to-use PNG cover images sized for each platform.
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 sm:items-end">
                   {canToggleBannerLock ? (
-                    <BannerLockToggle
-                      checked={bannerControlsLocked}
-                      disabled={
-                        isUpdatingBannerLock || process.env.NODE_ENV === 'production'
-                      }
-                      onChange={(locked) => void updateBannerLock(locked)}
+                    <BannerPublicChangesToggle
+                      allowed={!bannerControlsLocked}
+                      disabled={isUpdatingBannerLock}
+                      onChange={(allowed) => void updateBannerLock(!allowed)}
                     />
                   ) : null}
-                  <span className="text-sm text-slate-500">
-                    {formatAssetCount(bannerAssetCount)}
-                  </span>
-                  {manifest.downloads.bannerAssets ? (
-                    <DownloadAllButton
-                      fileName={bannerDownloadFileName}
-                      href={bannerDownloadHref}
-                    />
-                  ) : null}
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-slate-500">
+                      {formatAssetCount(bannerAssetCount)}
+                    </span>
+                    {manifest.downloads.bannerAssets ? (
+                      <DownloadAllButton
+                        fileName={bannerDownloadFileName}
+                        href={bannerDownloadHref}
+                      />
+                    ) : null}
+                  </div>
                 </div>
               </div>
-              {canUseBannerActions && endpoints?.bannerPresets && bannerControls ? (
+              {canShowBannerActions && endpoints?.bannerPresets && bannerControls ? (
                 <BannerPresetControls
                   banners={bannerAssets}
                   controls={bannerControls}
+                  disabled={!canUseBannerActions || isUpdatingBannerLock}
                   endpoint={endpoints.bannerPresets}
                   onToast={showToast}
                   onUpdated={updateBannerPreviews}
+                  storageKey={bannerPresetStorageKey}
                 />
               ) : null}
               <div className="mt-12 space-y-10">
                 {manifest.bannerGroups.map((group) => (
                   <BannerGroup
-                    canUseDevActions={canUseCustomBannerUploads}
                     customBannerIds={customBannerIds}
                     endpoints={endpoints}
                     group={group}
@@ -3918,6 +4072,8 @@ body > footer {
                     onUpdated={() => updateBannerPreviews()}
                     previewOverrides={bannerPreviewOverrides}
                     previewVersion={bannerPreviewVersion}
+                    showUploadControls={canShowCustomBannerUploads}
+                    uploadControlsDisabled={!canUseCustomBannerUploads}
                   />
                 ))}
               </div>
@@ -3942,6 +4098,17 @@ body > footer {
           </p>
         </div>
       </footer>
+      {showBackToTop ? (
+        <button
+          aria-label="Back to top"
+          className="fixed right-4 bottom-4 z-[110] inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition-colors hover:border-slate-300 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3a89c0] sm:right-6 sm:bottom-6"
+          onClick={scrollToTop}
+          title="Back to top"
+          type="button"
+        >
+          <ArrowUp aria-hidden className="h-4 w-4" />
+        </button>
+      ) : null}
       <Lightbox asset={selectedAsset} onClose={() => setSelectedAsset(null)} />
       <ToastStack toasts={toasts} />
     </div>

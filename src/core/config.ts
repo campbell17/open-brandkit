@@ -104,11 +104,13 @@ export const brandKitConfigSchema = z.object({
       publicDir: z.string().min(1).default('public'),
       assetBasePath: z.string().min(1).optional(),
       manifestFileName: z.string().min(1).default('brandkit.manifest.json'),
+      printFileName: z.string().min(1).default('print.html'),
       siteFileName: z.string().min(1).default('index.html'),
     })
     .default({
       publicDir: 'public',
       manifestFileName: 'brandkit.manifest.json',
+      printFileName: 'print.html',
       siteFileName: 'index.html',
     }),
   logos: z.object({
@@ -126,7 +128,7 @@ export const brandKitConfigSchema = z.object({
       publicPath: z.string().min(1).optional(),
       locked: z.boolean().default(false),
       markVariants: z.array(bannerMarkVariantSchema).min(1),
-      colors: z.array(bannerColorSchema).min(1),
+      colors: z.array(bannerColorSchema).min(1).optional(),
       presets: z.array(socialBannerPresetSchema).min(1),
     })
     .optional(),

@@ -1,6 +1,7 @@
 import type {
   BrandKitBannerColorConfig,
   BrandKitBannerMarkVariantConfig,
+  BrandKitColor,
 } from './types.js'
 
 type BannerMarkColorOption = Pick<
@@ -10,6 +11,76 @@ type BannerMarkColorOption = Pick<
 
 function optionText(option: BannerMarkColorOption) {
   return `${option.key} ${option.label}`.toLowerCase()
+}
+
+function colorText(color: BrandKitColor) {
+  return color.name.toLowerCase()
+}
+
+function findColor(
+  colors: readonly BrandKitColor[],
+  predicate: (color: BrandKitColor) => boolean,
+  excluded = new Set<BrandKitColor>(),
+) {
+  return colors.find((color) => !excluded.has(color) && predicate(color))
+}
+
+export function deriveSocialBannerColors(
+  colors: readonly BrandKitColor[] | undefined,
+) {
+  const available = colors ?? []
+  const selected = new Set<BrandKitColor>()
+  const primary =
+    findColor(available, (color) => /\bprimary\b/.test(colorText(color))) ??
+    available[0]
+
+  if (primary) selected.add(primary)
+
+  const accent =
+    findColor(
+      available,
+      (color) => /\b(accent|secondary|deep|dark)\b/.test(colorText(color)),
+      selected,
+    ) ?? available.find((color) => !selected.has(color))
+
+  if (accent) selected.add(accent)
+
+  const light =
+    findColor(
+      available,
+      (color) => /\b(light|white|cream|pale|soft)\b/.test(colorText(color)),
+      selected,
+    ) ?? available.find((color) => !selected.has(color))
+
+  return [
+    {
+      key: 'primary',
+      label: primary?.name ?? 'Primary',
+      hex: primary?.hex ?? '#0d2249',
+    },
+    {
+      key: 'accent',
+      label: accent?.name ?? 'Accent',
+      hex: accent?.hex ?? '#4784de',
+    },
+    {
+      key: 'light',
+      label: light?.name ?? 'Light',
+      hex: light?.hex ?? '#ffffff',
+    },
+  ] satisfies BrandKitBannerColorConfig[]
+}
+
+export function resolveSocialBannerColors({
+  brandColors,
+  configuredColors,
+}: {
+  brandColors?: readonly BrandKitColor[]
+  configuredColors?: readonly BrandKitBannerColorConfig[]
+}) {
+  return configuredColors?.length
+    ? [...configuredColors]
+    : deriveSocialBannerColors(brandColors)
 }
 
 export function isWhiteBannerMarkColorOption(option: BannerMarkColorOption) {

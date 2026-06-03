@@ -16,6 +16,7 @@ import {
   orderBannerMarkColorOptions,
 } from '../core/social-banners.js'
 import type {
+  BrandKitBannerColorConfig,
   BrandKitColor,
   BrandKitColorSource,
   BrandKitConfig,
@@ -508,7 +509,7 @@ function uniqueKey(baseKey: string, usedKeys: Set<string>) {
 async function inferBannerMarkVariants(
   cwd: string,
   logoDir: string,
-  colors: BrandKitSocialBannersConfig['colors'],
+  colors: BrandKitBannerColorConfig[],
 ): Promise<BrandKitSocialBannersConfig['markVariants']> {
   const absoluteLogoDir = path.resolve(cwd, logoDir)
   const files = await readBrandAssetFiles(absoluteLogoDir)
@@ -519,7 +520,7 @@ async function inferBannerMarkVariants(
   const candidates = svgFiles.length ? svgFiles : relativeFiles
   const variants: BrandKitSocialBannersConfig['markVariants'] = []
 
-  function colorAliases(color: BrandKitSocialBannersConfig['colors'][number]) {
+  function colorAliases(color: BrandKitBannerColorConfig) {
     const parts = `${color.key} ${color.label}`
       .toLowerCase()
       .split(/[^a-z0-9]+/)
@@ -825,7 +826,6 @@ async function makeConfig(cwd: string, answers: InitAnswers): Promise<BrandKitCo
     },
     socialBanners: {
       markVariants: bannerMarkVariants,
-      colors: bannerColors,
       presets: [
         {
           key: 'x-profile-header',
@@ -967,6 +967,14 @@ export const { GET } = createBrandKitDownloadHandler()
 `
 }
 
+function printRouteSource() {
+  return `import { createBrandKitPrintHandler } from 'open-brandkit/next/server'
+
+export const runtime = 'nodejs'
+export const { GET } = createBrandKitPrintHandler()
+`
+}
+
 function layoutRouteSource() {
   return `import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
@@ -1053,6 +1061,7 @@ async function writeNextAdapterFiles({
   const bannerUploadPath = path.join(routeDir, 'banners', 'route.ts')
   const bannerPresetPath = path.join(routeDir, 'banners', 'presets', 'route.ts')
   const downloadPath = path.join(routeDir, 'download', '[group]', 'route.ts')
+  const printPath = path.join(routeDir, 'print', 'route.ts')
   const layoutPath = path.join(routeDir, 'layout.tsx')
 
   await ensureAppRootLayout({
@@ -1093,6 +1102,13 @@ async function writeNextAdapterFiles({
     content: downloadRouteSource(),
     created,
     filePath: downloadPath,
+    force,
+    skipped,
+  })
+  await writeGeneratedFile({
+    content: printRouteSource(),
+    created,
+    filePath: printPath,
     force,
     skipped,
   })

@@ -11,6 +11,7 @@ export type BrandKitOutputConfig = {
   publicDir?: string
   assetBasePath?: string
   manifestFileName?: string
+  printFileName?: string
   siteFileName?: string
 }
 
@@ -127,7 +128,7 @@ export type BrandKitSocialBannersConfig = {
   publicPath?: string
   locked?: boolean
   markVariants: BrandKitBannerMarkVariantConfig[]
-  colors: BrandKitBannerColorConfig[]
+  colors?: BrandKitBannerColorConfig[]
   presets: BrandKitSocialBannerPreset[]
 }
 
